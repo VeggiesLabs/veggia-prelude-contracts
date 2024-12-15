@@ -1,0 +1,39 @@
+#!/bin/bash
+
+# Include .env
+export $(cat .env | xargs)
+
+PRIVATE_KEY=$(cast wallet decrypt-keystore veggiaDeployer | grep "private key is: " | cut -d' ' -f5)
+
+# Deploy VeggiaERC721 contract
+# Parse result to get contract address using "Deployed to: " as delimiter
+LOGIC_DEPLOYED_TO=$(forge create src/VeggiaERC721.sol:VeggiaERC721 \
+    --private-key ${PRIVATE_KEY} \
+    --rpc-url ${ABSTRACT_TESTNET_URL} \
+    --chain 11124 \
+    --zksync \
+    --verify \
+    --verifier zksync \
+    --verifier-url https://api-explorer-verify.testnet.abs.xyz/contract_verification \
+    --constructor-args ${FEE_RECEIVER} ${VEGGIA_BASE_URI} | grep "Deployed to: ")
+
+# Extract implementation address
+LOGIC_ADDRESS=$(echo $LOGIC_DEPLOYED_TO | cut -d' ' -f3)
+
+echo "Deployed VeggiaERC721 contract to address: ${LOGIC_ADDRESS}"
+
+# Deploy VeggiaERC721Proxy contract with logic address and admin address
+echo "Deploying VeggiaERC721Proxy contract with logic address: ${LOGIC_ADDRESS} and admin address: ${OWNER}"
+PROXY_ADDRESS=$(forge create src/proxy/VeggiaERC721Proxy.sol:VeggiaERC721Proxy \
+    --private-key ${PRIVATE_KEY} \
+    --rpc-url ${ABSTRACT_TESTNET_URL} \
+    --chain 11124 \
+    --zksync \
+    --verify \
+    --verifier zksync \
+    --verifier-url https://api-explorer-verify.testnet.abs.xyz/contract_verification \
+    --constructor-args ${LOGIC_ADDRESS} ${OWNER} | grep "Deployed to: " | cut -d' ' -f3)
+
+echo "Deployed VeggiaERC721Proxy contract to address: ${PROXY_ADDRESS}"
+
+cast send $PROXY_ADDRESS "initialize(address,address,string)" $OWNER $OWNER "http://localhost:4000/veggiaERC721/metadata/" --rpc-url $ABSTRACT_TESTNET_URL --chain 11124 --zksync --private-key $PRIVATE_KEY

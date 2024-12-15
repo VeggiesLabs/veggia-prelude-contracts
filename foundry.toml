@@ -2,5 +2,13 @@
 src = "src"
 out = "out"
 libs = ["lib"]
+solc = "0.8.24"
+fallback_oz = true
+is_system = false 
+mode = "3"
 
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+remappings = [
+  "@openzeppelin/=lib/openzeppelin-contracts/",
+  "forge-std/=lib/forge-std/src/",
+  "openzeppelin-contracts/=lib/openzeppelin-contracts/"
+]
