@@ -133,23 +133,17 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
         }
 
         // Mint the NFTs
-        _mint(to, tokenId);
-        tokenId++;
-        _mint(to, tokenId);
-        tokenId++;
-        _mint(to, tokenId);
-        tokenId++;
+        tripleMint(to);
     }
 
     /**
      * @notice Mint a new token using the paid eggs.
      */
-    function mint() external {
+    function mint(address to) external {
         if (paidEggBalanceOf[msg.sender] == 0)
             revert INSUFFICIENT_EGG_BALANCE();
         paidEggBalanceOf[msg.sender]--;
-        _mint(msg.sender, tokenId);
-        tokenId++;
+        tripleMint(to);
     }
 
     /**
@@ -185,6 +179,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
         // Return the sum of paid and free egg balance
         return paidEggBalanceOf[account] + freeEggBalance;
     }
+
+    /* -------------------------------------------------------------------------- */
+    /*                               View functions                               */
+    /* -------------------------------------------------------------------------- */
 
     /* -------------------------------------------------------------------------- */
     /*                                  Overrides                                 */
@@ -256,5 +254,22 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
     function setFeeReceiver(address receiver) external onlyOwner {
         feeReceiver = receiver;
         emit FeeReceiverChanged(receiver);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                              Private functions                             */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice Mint 3 new tokens.
+     * @param to The address that will own the minted tokens.
+     */
+    function tripleMint(address to) private {
+        _mint(to, tokenId);
+        tokenId++;
+        _mint(to, tokenId);
+        tokenId++;
+        _mint(to, tokenId);
+        tokenId++;
     }
 }
