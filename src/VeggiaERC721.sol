@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.24;
 
+import {ERC721TransferLock} from "./ERC721TransferLock.sol";
+
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 
-contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
+contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable {
     /* -------------------------------------------------------------------------- */
     /*                                   Storage                                  */
     /* -------------------------------------------------------------------------- */
@@ -102,9 +104,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
     /**
      * @notice Open an egg that mints 3 new token for free.
      * @dev Free mint is only allowed once per {freeMintCooldown} seconds with a maximum of {freeMintLimit} staked eggs.
-     * @param to The address that will own the minted token.
      */
-    function freeMint(address to) external {
+    function freeMint() external {
+        // The third token of the first mint is locked
+        _lockFirstMintToken(tokenId+2);
+
         uint256 _freeMintLimit = freeMintLimit;
         uint256 _freeMintCooldown = freeMintCooldown;
 
@@ -133,17 +137,21 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
         }
 
         // Mint the NFTs
-        tripleMint(to);
+        _tripleMintToSender();
     }
 
     /**
      * @notice Mint a new token using the paid eggs.
      */
-    function mint(address to) external {
+    function mint() external {
         if (paidEggBalanceOf[msg.sender] == 0)
             revert INSUFFICIENT_EGG_BALANCE();
+
+        // The third token of the first mint is locked
+        _lockFirstMintToken(tokenId+2);
+
         paidEggBalanceOf[msg.sender]--;
-        tripleMint(to);
+        _tripleMintToSender();
     }
 
     /**
@@ -261,15 +269,20 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721Royalty, Ownable {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @notice Mint 3 new tokens.
-     * @param to The address that will own the minted tokens.
+     * @notice Mint 3 new tokens to the sender.
      */
-    function tripleMint(address to) private {
-        _mint(to, tokenId);
+    function _tripleMintToSender() private {
+        _mint(msg.sender, tokenId);
         tokenId++;
-        _mint(to, tokenId);
+        _mint(msg.sender, tokenId);
         tokenId++;
-        _mint(to, tokenId);
+        _mint(msg.sender, tokenId);
         tokenId++;
+    }
+
+    function _lockFirstMintToken(uint256 _thirdTokenId) private {
+        if (lastMintTimestamp[msg.sender] == 0) {
+            _lockToken(_thirdTokenId);
+        }
     }
 }
