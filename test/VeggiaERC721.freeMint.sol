@@ -12,6 +12,11 @@ contract VeggiaERC721FreeMintTest is Test {
             address(msg.sender),
             "http://localhost:4000/"
         );
+        veggia.initialize(
+            address(this),
+            address(this),
+            "http://localhost:4000/"
+        );
     }
 
     function test_freeMintWhenNoMintIsAvailable() public {
@@ -19,9 +24,13 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 0);
 
         uint256 balanceBefore = veggia.balanceOf(address(this));
-        
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector));
-        veggia.freeMint(address(this));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector
+            )
+        );
+        veggia.freeMint();
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
@@ -30,21 +39,25 @@ contract VeggiaERC721FreeMintTest is Test {
     }
 
     function test_freeMintWhenOneMintIsAvailable() public {
-        vm.warp(veggia.freeMintCooldown() * 3 / 2); // 1.5 * cooldown
+        vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
         assertEq(veggia.eggBalanceOf(address(this)), 1);
 
         uint256 balanceBefore = veggia.balanceOf(address(this));
-        
+
         // First mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
 
         // Second mint should fail
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector));
-        veggia.freeMint(address(this));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector
+            )
+        );
+        veggia.freeMint();
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
-        assertTrue(balanceAfter - balanceBefore == 1);
+        assertTrue(balanceAfter - balanceBefore == 3);
         assertEq(veggia.eggBalanceOf(address(this)), 0);
 
         // Go to the second mint cooldown
@@ -52,15 +65,19 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 1);
 
         // First mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
 
         // Second mint should fail
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector));
-        veggia.freeMint(address(this));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector
+            )
+        );
+        veggia.freeMint();
 
         balanceAfter = veggia.balanceOf(address(this));
 
-        assertTrue(balanceAfter - balanceBefore == 2);
+        assertTrue(balanceAfter - balanceBefore == 6);
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 
@@ -69,19 +86,23 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 2);
 
         uint256 balanceBefore = veggia.balanceOf(address(this));
-        
+
         // First mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
         // Second mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
 
         // Third mint should fail
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector));
-        veggia.freeMint(address(this));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector
+            )
+        );
+        veggia.freeMint();
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
-        assertEq(balanceAfter - balanceBefore, 2);
+        assertEq(balanceAfter - balanceBefore, 6);
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 
@@ -90,41 +111,46 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 2);
 
         uint256 balanceBefore = veggia.balanceOf(address(this));
-        
+
         // First mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
         // Second mint should succeed
-        veggia.freeMint(address(this));
+        veggia.freeMint();
 
         // Third mint should fail
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector));
-        veggia.freeMint(address(this));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                VeggiaERC721.INSUFFICIENT_EGG_BALANCE.selector
+            )
+        );
+        veggia.freeMint();
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
-        assertTrue(balanceAfter - balanceBefore == 2);
+        assertTrue(balanceAfter - balanceBefore == 6);
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 
     function test_invariant_freeMint(uint256 randomTimestamp) public {
-        randomTimestamp = bound(randomTimestamp, 0 + veggia.freeMintCooldown(), 2 days);
+        randomTimestamp = bound(
+            randomTimestamp,
+            0 + veggia.freeMintCooldown(),
+            2 days
+        );
         vm.warp(randomTimestamp);
 
         uint256 balanceBefore = veggia.balanceOf(address(this));
-        
+
         bool failed = false;
-        console.log(veggia.lastMintTimestamp(address(this)));
         while (!failed) {
-            try veggia.freeMint(address(this)) {} catch {
+            try veggia.freeMint() {} catch {
                 failed = true;
             }
-
-            console.log(veggia.lastMintTimestamp(address(this)));
         }
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
-        assertTrue(balanceAfter - balanceBefore <= veggia.freeMintLimit());
+        assertTrue(balanceAfter - balanceBefore <= veggia.freeMintLimit() * 3);
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 }
