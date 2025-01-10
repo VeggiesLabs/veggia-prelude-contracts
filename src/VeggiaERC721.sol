@@ -7,6 +7,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
+import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
 contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable {
     /* -------------------------------------------------------------------------- */
@@ -35,6 +36,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice The address that will receive the egg price.
      */
     address public feeReceiver;
+    /**
+     * @notice The address that sign the mintWithSignature message.
+     */
+    address public signer;
 
     /* ------------------------------ Bytes storage ----------------------------- */
     string private baseURI;
@@ -42,6 +47,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /* ---------------------------- Mappings storage ---------------------------- */
     mapping(address => uint256) public lastMintTimestamp;
     mapping(address => uint256) public paidEggBalanceOf;
+    mapping(address => uint256) public paidPremiumEggBalanceOf;
+    mapping(address => bool) public hasMinted;
+    mapping(address => mapping(uint256 => bool)) signatureMintsOf;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -50,6 +58,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error NOT_ENOUGH_VALUE();
     error FEE_TRANSFER_FAILED();
     error ALREADY_INITIALIZED();
+    error INVALID_SIGNATURE();
+    error SIGNATURE_REUSED();
+    error INVALID_SENDER(address sender, address expected);
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -59,14 +70,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event FreeMintLimitChanged(uint256 newLimit);
     event FreeMintCooldownChanged(uint256 newCooldown);
     event FeeReceiverChanged(address newFeeReceiver);
+    event SignerChanged(address newSigner);
+    event LockedFirstMintToken(uint256 tokenId);
+    event MintedWithSignature(address indexed account, bytes message, bytes signature);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
     /* -------------------------------------------------------------------------- */
-    constructor(
-        address _feeReceiver,
-        string memory _baseUri
-    ) ERC721("Veggia", "VEGGIA") Ownable(msg.sender) {
+    constructor(address _feeReceiver, string memory _baseUri) ERC721("Veggia", "VEGGIA") Ownable(msg.sender) {
         baseURI = _baseUri;
         feeReceiver = _feeReceiver;
     }
@@ -80,16 +91,13 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _feeReceiver The address that will receive the egg price.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(
-        address owner,
-        address _feeReceiver,
-        string memory _baseUri
-    ) external {
-        if(freeMintLimit != 0) revert ALREADY_INITIALIZED();
-        
+    function initialize(address owner, address _feeReceiver, address _signer, string memory _baseUri) external {
+        if (freeMintLimit != 0) revert ALREADY_INITIALIZED();
+
         _transferOwnership(owner);
 
         baseURI = _baseUri;
+        signer = _signer;
         feeReceiver = _feeReceiver;
 
         freeMintLimit = 2;
@@ -106,9 +114,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @dev Free mint is only allowed once per {freeMintCooldown} seconds with a maximum of {freeMintLimit} staked eggs.
      */
     function freeMint() external {
-        // The third token of the first mint is locked
-        _lockFirstMintToken(tokenId+2);
-
         uint256 _freeMintLimit = freeMintLimit;
         uint256 _freeMintCooldown = freeMintCooldown;
 
@@ -125,15 +130,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         if (totalEggBalance == 0) revert INSUFFICIENT_EGG_BALANCE();
 
         if (elapsedTime / _freeMintCooldown > _freeMintLimit) {
-            lastMintTimestamp[msg.sender] =
-                block.timestamp -
-                _freeMintCooldown *
-                (_freeMintLimit - 1);
+            lastMintTimestamp[msg.sender] = block.timestamp - _freeMintCooldown * (_freeMintLimit - 1);
         } else {
             lastMintTimestamp[msg.sender] =
-                block.timestamp -
-                (_freeMintCooldown * (totalEggBalance - 1)) -
-                (elapsedTime % _freeMintCooldown);
+                block.timestamp - (_freeMintCooldown * (totalEggBalance - 1)) - (elapsedTime % _freeMintCooldown);
         }
 
         // Mint the NFTs
@@ -144,14 +144,36 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Mint a new token using the paid eggs.
      */
     function mint() external {
-        if (paidEggBalanceOf[msg.sender] == 0)
+        if (paidEggBalanceOf[msg.sender] == 0) {
             revert INSUFFICIENT_EGG_BALANCE();
-
-        // The third token of the first mint is locked
-        _lockFirstMintToken(tokenId+2);
+        }
 
         paidEggBalanceOf[msg.sender]--;
         _tripleMintToSender();
+    }
+
+    /**
+     * @notice Mint a new token using a signature.
+     * @param signature The signature to verify.
+     * @param message The message to sign.
+     */
+    function mintWithSignature(bytes memory signature, bytes calldata message) external {
+        // Verify the signature
+        bytes32 messageHash = keccak256(message);
+        address recoveredSigner = ECDSA.recover(messageHash, signature);
+        if (recoveredSigner != signer) revert INVALID_SIGNATURE();
+
+        (address to, uint256 index) = abi.decode(message, (address, uint256));
+        if (signatureMintsOf[to][index]) revert SIGNATURE_REUSED();
+
+        signatureMintsOf[to][index] = true;
+
+        if (to != msg.sender) revert INVALID_SENDER(msg.sender, to);
+
+        // Mint the NFTs
+        _tripleMintToSender();
+
+        emit MintedWithSignature(msg.sender, message, signature);
     }
 
     /**
@@ -161,10 +183,24 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         if (msg.value < eggPrice) revert NOT_ENOUGH_VALUE();
 
         // Transfer the egg price to the fee receiver
-        (bool success, ) = payable(feeReceiver).call{value: eggPrice}("");
+        (bool success,) = payable(feeReceiver).call{value: eggPrice}("");
         if (!success) revert FEE_TRANSFER_FAILED();
 
         paidEggBalanceOf[msg.sender]++;
+    }
+
+    /**
+     * @notice Burn a batch of tokens.
+     * @param tokenIds The IDs of the tokens to burn.
+     */
+    function batchBurn(uint256[] calldata tokenIds) external {
+        for (uint256 i = 0; i < tokenIds.length;) {
+            burn(tokenIds[i]);
+
+            unchecked {
+                i++;
+            }
+        }
     }
 
     /* -------------------------------------------------------------------------- */
@@ -178,11 +214,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function eggBalanceOf(address account) public view returns (uint256) {
         // DIV op floor the result
-        uint256 freeEggBalance = (block.timestamp -
-            lastMintTimestamp[account]) / freeMintCooldown;
-        freeEggBalance = freeEggBalance > freeMintLimit
-            ? freeMintLimit
-            : freeEggBalance;
+        uint256 freeEggBalance = (block.timestamp - lastMintTimestamp[account]) / freeMintCooldown;
+        freeEggBalance = freeEggBalance > freeMintLimit ? freeMintLimit : freeEggBalance;
 
         // Return the sum of paid and free egg balance
         return paidEggBalanceOf[account] + freeEggBalance;
@@ -209,9 +242,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param interfaceId The interface identifier.
      * @return Whether the interface is supported.
      */
-    function supportsInterface(
-        bytes4 interfaceId
-    ) public view override(ERC721, ERC721Royalty) returns (bool) {
+    function supportsInterface(bytes4 interfaceId) public view override(ERC721, ERC721Royalty) returns (bool) {
         return super.supportsInterface(interfaceId);
     }
 
@@ -264,6 +295,35 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         emit FeeReceiverChanged(receiver);
     }
 
+    /**
+     * @notice Set the signer.
+     * @param _signer The new signer.
+     */
+    function setSigner(address _signer) external onlyOwner {
+        signer = _signer;
+        emit SignerChanged(_signer);
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                             Internal functions                             */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @dev Override the _update function to resolve inheritance conflict.
+     * This function ensures locked tokens cannot be transferred.
+     * @param to The address to transfer the token to.
+     * @param token The token ID to transfer.
+     * @param auth The authorizer of the transfer.
+     */
+    function _update(address to, uint256 token, address auth)
+        internal
+        override(ERC721, ERC721TransferLock)
+        returns (address)
+    {
+        // Use the implementation from ERC721TransferLock
+        return ERC721TransferLock._update(to, token, auth);
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                              Private functions                             */
     /* -------------------------------------------------------------------------- */
@@ -277,12 +337,20 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         _mint(msg.sender, tokenId);
         tokenId++;
         _mint(msg.sender, tokenId);
+        _lockFirstMintToken(tokenId);
         tokenId++;
     }
 
-    function _lockFirstMintToken(uint256 _thirdTokenId) private {
-        if (lastMintTimestamp[msg.sender] == 0) {
-            _lockToken(_thirdTokenId);
+    /**
+     * @notice Lock a token if it is the first msg.sender mint.
+     * @param _tokenId The token ID to lock.
+     */
+    function _lockFirstMintToken(uint256 _tokenId) private {
+        if (hasMinted[msg.sender] == false) {
+            _lockToken(_tokenId);
+            hasMinted[msg.sender] = true;
+
+            emit LockedFirstMintToken(_tokenId);
         }
     }
 }

@@ -36,4 +36,5 @@ PROXY_ADDRESS=$(forge create src/proxy/VeggiaERC721Proxy.sol:VeggiaERC721Proxy \
 
 echo "Deployed VeggiaERC721Proxy contract to address: ${PROXY_ADDRESS}"
 
-cast send $PROXY_ADDRESS "initialize(address,address,string)" $OWNER $OWNER "http://localhost:4000/veggiaERC721/metadata/" --rpc-url $ABSTRACT_TESTNET_URL --chain 11124 --zksync --private-key $PRIVATE_KEY
+
+cast send $PROXY_ADDRESS "initialize(address,address,address,string)" $OWNER $OWNER $SERVER_SIGNER "http://localhost:4000/veggiaERC721/metadata/" --rpc-url $ABSTRACT_TESTNET_URL --chain 11124 --zksync --private-key $PRIVATE_KEY

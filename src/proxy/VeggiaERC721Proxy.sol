@@ -19,20 +19,11 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      * @param _feeReceiver The address that will receive the egg price.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(
-        address owner,
-        address _feeReceiver,
-        string memory _baseUri
-    ) external {
+    function initialize(address owner, address _feeReceiver, string memory _baseUri) external {
         if (initialized) revert ALREADY_INITIALIZED();
 
         (bool success,) = _implementation().delegatecall(
-            abi.encodeWithSelector(
-                VeggiaERC721.initialize.selector,
-                owner,
-                _feeReceiver,
-                _baseUri
-            )
+            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _baseUri)
         );
 
         if (!success) revert INITIALIZATION_FAILED();

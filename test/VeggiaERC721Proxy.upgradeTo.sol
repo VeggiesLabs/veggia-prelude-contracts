@@ -11,14 +11,9 @@ contract VeggiaERC721FreeMintTest is Test {
     VeggiaERC721 public veggia;
 
     function setUp() public {
-        veggia = new VeggiaERC721(
-            address(msg.sender),
-            "http://localhost:4000/"
-        );
+        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
         veggia.initialize(
-            address(this),
-            address(this),
-            "http://localhost:4000/"
+            address(this), address(this), address(vm.envAddress("SERVER_SIGNER")), "http://localhost:4000/"
         );
 
         console.log("Admin address: %s", address(this));
