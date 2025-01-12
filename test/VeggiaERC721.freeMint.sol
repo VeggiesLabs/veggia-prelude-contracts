@@ -64,7 +64,7 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 
-    function test_freeMintWhenTwoMintIsAvailable() public {
+    function test_freeMintWhenTwoMintAreAvailable() public {
         vm.warp(veggia.freeMintCooldown() * 2); // 2 * cooldown
         assertEq(veggia.eggBalanceOf(address(this)), 2);
 
@@ -85,7 +85,7 @@ contract VeggiaERC721FreeMintTest is Test {
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 
-    function test_freeMintWhenMoreThanTwoMintIsAvailable() public {
+    function test_freeMintWhenMoreThanTwoMintAreAvailable() public {
         vm.warp(veggia.freeMintCooldown() * 1000); // 1000 * cooldown
         assertEq(veggia.eggBalanceOf(address(this)), 2);
 
@@ -122,7 +122,14 @@ contract VeggiaERC721FreeMintTest is Test {
 
         uint256 balanceAfter = veggia.balanceOf(address(this));
 
-        assertTrue(balanceAfter - balanceBefore <= veggia.freeMintLimit() * 3);
+        // Freemint limit is 2
+        assertTrue(
+            randomTimestamp < veggia.freeMintCooldown()
+                ? balanceAfter - balanceBefore == 0
+                : randomTimestamp < veggia.freeMintCooldown() * 2
+                ? balanceAfter - balanceBefore == 3
+                : balanceAfter - balanceBefore == 6
+        );
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
 }
