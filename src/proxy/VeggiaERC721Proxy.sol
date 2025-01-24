@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {VeggiaERC721} from "../VeggiaERC721.sol";
 
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
     bool initialized;
@@ -11,6 +12,7 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
     error ALREADY_INITIALIZED();
     error INITIALIZATION_FAILED();
     error CAN_NOT_RECEIVE_ETHER();
+    error UNAUTHORIZED();
 
     constructor(address logic, address initialOwner) TransparentUpgradeableProxy(logic, initialOwner, bytes("")) {}
 
@@ -19,14 +21,16 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      * @param _feeReceiver The address that will receive the egg price.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(address owner, address _feeReceiver, string memory _baseUri) external {
+    function initialize(address owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
+        if (msg.sender != ProxyAdmin(_proxyAdmin()).owner()) revert UNAUTHORIZED();
         if (initialized) revert ALREADY_INITIALIZED();
 
         (bool success,) = _implementation().delegatecall(
-            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _baseUri)
+            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _capsSigner, _baseUri)
         );
 
         if (!success) revert INITIALIZATION_FAILED();
+        initialized = true;
     }
 
     /**

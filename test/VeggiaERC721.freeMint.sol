@@ -127,8 +127,8 @@ contract VeggiaERC721FreeMintTest is Test {
             randomTimestamp < veggia.freeMintCooldown()
                 ? balanceAfter - balanceBefore == 0
                 : randomTimestamp < veggia.freeMintCooldown() * 2
-                ? balanceAfter - balanceBefore == 3
-                : balanceAfter - balanceBefore == 6
+                    ? balanceAfter - balanceBefore == 3
+                    : balanceAfter - balanceBefore == 6
         );
         assertEq(veggia.eggBalanceOf(address(this)), 0);
     }
