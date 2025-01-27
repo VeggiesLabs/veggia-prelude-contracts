@@ -16,8 +16,6 @@ contract VeggiaERC721ProxyTest is Test {
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
         veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
 
-        console.log("Admin address: %s", address(this));
-
         proxy = new VeggiaERC721Proxy(address(veggia), address(this));
     }
 }
