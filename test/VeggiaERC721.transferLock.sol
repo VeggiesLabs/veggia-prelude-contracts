@@ -4,15 +4,15 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {ERC721TransferLock} from "../src/ERC721TransferLock.sol";
+import {SERVER_SIGNER} from "./utils/constants.sol";
 
-contract VeggiaERC721FreeMintTest is Test {
+contract VeggiaERC721TransferLockTest is Test {
     VeggiaERC721 public veggia;
 
     function setUp() public {
         veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
-        veggia.initialize(
-            address(this), address(this), address(vm.envAddress("SERVER_SIGNER")), "http://localhost:4000/"
-        );
+        address serverSigner = vm.addr(uint256(SERVER_SIGNER));
+        veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
     }
 
     /**
@@ -20,7 +20,7 @@ contract VeggiaERC721FreeMintTest is Test {
      */
     function test_transferFirst3Tokens() public {
         vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
-        assertEq(veggia.eggBalanceOf(address(this)), 1);
+        assertEq(veggia.capsBalanceOf(address(this)), 1);
 
         // First mint should mint 3 tokens
         veggia.freeMint();
@@ -43,8 +43,8 @@ contract VeggiaERC721FreeMintTest is Test {
      */
     function test_transferFirst3PaidTokens() public {
         // Buy an egg and open it to mint 3 tokens
-        veggia.buyEgg{value: veggia.eggPrice()}();
-        veggia.mint();
+        veggia.buyCaps{value: veggia.capsPriceByQuantity(1)}(false, 1);
+        veggia.mint(false);
 
         assertEq(veggia.balanceOf(address(this)), 3);
 
@@ -89,8 +89,8 @@ contract VeggiaERC721FreeMintTest is Test {
 
         for (uint256 i = 0; i < mintAmount; i += 3) {
             // Buy an egg and open it to mint 3 tokens
-            veggia.buyEgg{value: veggia.eggPrice()}();
-            veggia.mint();
+            veggia.buyCaps{value: veggia.capsPriceByQuantity(1)}(false, 1);
+            veggia.mint(false);
 
             veggia.transferFrom(address(this), address(0x1), i);
             veggia.transferFrom(address(this), address(0x1), i + 1);

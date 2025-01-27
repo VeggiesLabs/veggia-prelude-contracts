@@ -3,15 +3,15 @@ pragma solidity ^0.8.24;
 
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
+import {SERVER_SIGNER} from "./utils/constants.sol";
 
-contract VeggiaERC721FreeMintTest is Test {
+contract VeggiaERC721BurnTest is Test {
     VeggiaERC721 public veggia;
 
     function setUp() public {
         veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
-        veggia.initialize(
-            address(this), address(this), address(vm.envAddress("SERVER_SIGNER")), "http://localhost:4000/"
-        );
+        address serverSigner = vm.addr(uint256(SERVER_SIGNER));
+        veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
     }
 
     function test_burn() public {

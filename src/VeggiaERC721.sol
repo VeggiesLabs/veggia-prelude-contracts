@@ -73,11 +73,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /**
      * @notice A mapping of the caps price by quantity.
      */
-    mapping(uint256 => uint256) capsPriceByQuantity;
+    mapping(uint256 => uint256) public capsPriceByQuantity;
     /**
      * @notice A mapping of the premium caps price by quantity.
      */
-    mapping(uint256 => uint256) premiumCapsPriceByQuantity;
+    mapping(uint256 => uint256) public premiumCapsPriceByQuantity;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -313,7 +313,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     }
 
     /* -------------------------------------------------------------------------- */
-    /*                               Public function                              */
+    /*                               View functions                               */
     /* -------------------------------------------------------------------------- */
 
     /**
@@ -329,10 +329,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         // Return the sum of paid and free caps balance
         return paidCapsBalanceOf[account] + paidPremiumCapsBalanceOf[account] + freeCapsBalance;
     }
-
-    /* -------------------------------------------------------------------------- */
-    /*                               View functions                               */
-    /* -------------------------------------------------------------------------- */
 
     /* -------------------------------- Overrides ------------------------------- */
 

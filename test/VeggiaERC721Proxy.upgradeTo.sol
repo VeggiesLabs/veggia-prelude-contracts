@@ -5,16 +5,16 @@ import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {VeggiaERC721Proxy} from "../src/proxy/VeggiaERC721Proxy.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {SERVER_SIGNER} from "./utils/constants.sol";
 
-contract VeggiaERC721FreeMintTest is Test {
+contract VeggiaERC721ProxyTest is Test {
     VeggiaERC721Proxy public proxy;
     VeggiaERC721 public veggia;
 
     function setUp() public {
         veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
-        veggia.initialize(
-            address(this), address(this), address(vm.envAddress("SERVER_SIGNER")), "http://localhost:4000/"
-        );
+        address serverSigner = vm.addr(uint256(SERVER_SIGNER));
+        veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
 
         console.log("Admin address: %s", address(this));
 
