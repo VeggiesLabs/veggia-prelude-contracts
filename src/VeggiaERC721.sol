@@ -88,6 +88,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error NOT_ENOUGH_VALUE();
     /// @dev Throws if the value sent is not the expected one.
     error WRONG_VALUE();
+    /// @dev Throws if the quantity is not the expected one.
+    error WRONG_CAPS_AMOUNT();
     /// @dev Throws if the fee transfer failed.
     error FEE_TRANSFER_FAILED();
     /// @dev Throws if the contract is already initialized.
@@ -193,6 +195,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Open a caps that mints 3 new token.
+     * @param isPremium Whether the caps is premium or not.
      */
     function mint(bool isPremium) external {
         uint256 balance;
@@ -243,6 +246,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function buyCaps(bool isPremium, uint256 quantity) external payable {
         uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
+        if (price == 0) revert WRONG_CAPS_AMOUNT();
         if (msg.value != price) revert WRONG_VALUE();
 
         // Transfer the caps price to the fee receiver

@@ -6,6 +6,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 /**
  * @title ERC721TransferLock
  * @dev ERC721TransferLock is an ERC721 contract that allows locking of token transfers.
+ * @dev Locked tokens cannot be unlocked.
  */
 abstract contract ERC721TransferLock is ERC721 {
     /// @dev Mapping of locked tokens.
@@ -17,11 +18,6 @@ abstract contract ERC721TransferLock is ERC721 {
     /// @dev Locks a token.
     function _lockToken(uint256 tokenId) internal {
         _lockedTokens[tokenId] = true;
-    }
-
-    /// @dev Unlocks a token.
-    function unlockToken(uint256 tokenId) internal {
-        _lockedTokens[tokenId] = false;
     }
 
     /// @dev Checks if a token is locked.
