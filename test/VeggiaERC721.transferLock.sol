@@ -38,6 +38,49 @@ contract VeggiaERC721TransferLockTest is Test {
         veggia.transferFrom(address(this), address(0x1), 2);
     }
 
+    function test_burnLockedTokens() public {
+        vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
+        assertEq(veggia.capsBalanceOf(address(this)), 1);
+
+        // First mint should mint 3 tokens
+        veggia.freeMint();
+
+        assertEq(veggia.balanceOf(address(this)), 3);
+
+        // Burn 1st token should be successful
+        assertFalse(veggia.isTokenLocked(0));
+        veggia.burn(0);
+
+        // Burn 2nd token should be successful
+        assertFalse(veggia.isTokenLocked(1));
+        veggia.burn(1);
+
+        // Burn 3rd token should be successful too
+        assertTrue(veggia.isTokenLocked(2));
+        veggia.burn(2);
+    }
+
+    function test_batchBurnLockedTokens() public {
+        vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
+        assertEq(veggia.capsBalanceOf(address(this)), 1);
+
+        // First mint should mint 3 tokens
+        veggia.freeMint();
+
+        assertEq(veggia.balanceOf(address(this)), 3);
+        assertFalse(veggia.isTokenLocked(0));
+        assertFalse(veggia.isTokenLocked(1));
+        assertTrue(veggia.isTokenLocked(2));
+
+        uint256[] memory tokenIds = new uint256[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            tokenIds[i] = i;
+        }
+
+        // Burn tokens should be successful
+        veggia.batchBurn(tokenIds);
+    }
+
     /**
      * Test if only the 3rd minted token of the first free mint is locked
      */
