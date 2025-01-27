@@ -29,14 +29,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     uint256 public tokenId;
     /**
-     * @notice The price of a caps.
-     */
-    uint256 public capsPrice;
-    /**
-     * @notice The price of a premium caps.
-     */
-    uint256 public premiumCapsPrice;
-    /**
      * @notice The address that will receive the caps sale revenue.
      */
     address public feeReceiver;
@@ -44,6 +36,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice The address that sign the mintWithSignature message.
      */
     address public capsSigner;
+    /**
+     * @notice The price of the premium pack.
+     *         1 NFT mint + 10 caps + 3 premium caps.
+     */
+    uint256 public premiumPackPrice;
 
     /* ------------------------------ Bytes storage ----------------------------- */
     /**
@@ -52,11 +49,35 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     string private baseURI;
 
     /* ---------------------------- Mappings storage ---------------------------- */
+    /**
+     * @notice A mapping of the last free mint timestamp of an account.
+     */
     mapping(address => uint256) public lastMintTimestamp;
+    /**
+     * @notice A mapping of the paid caps balance of an account.
+     */
     mapping(address => uint256) public paidCapsBalanceOf;
+    /**
+     * @notice A mapping of the paid premium caps balance of an account.
+     */
     mapping(address => uint256) public paidPremiumCapsBalanceOf;
+    /**
+     * @notice A mapping that store if an account has already minted a token.
+     * @dev Used to lock the 3rd token of the first mint of an account.
+     */
     mapping(address => bool) public hasMinted;
-    mapping(address => mapping(uint256 => bool)) signatureMintsOf;
+    /**
+     * @notice A mapping that store if a signature has already been used.
+     */
+    mapping(address => mapping(uint256 => bool)) public signatureMintsOf;
+    /**
+     * @notice A mapping of the caps price by quantity.
+     */
+    mapping(uint256 => uint256) capsPriceByQuantity;
+    /**
+     * @notice A mapping of the premium caps price by quantity.
+     */
+    mapping(uint256 => uint256) premiumCapsPriceByQuantity;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -82,14 +103,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
     event BaseURIChanged(string newBaseURI);
-    event CapsPriceChanged(uint256 newPrice);
-    event PremiumCapsPriceChanged(uint256 newPrice);
+    event CapsPriceChanged(uint256 indexed quantity, uint256 newPrice);
+    event PremiumCapsPriceChanged(uint256 indexed quantity, uint256 newPrice);
+    event PremiumPackPriceChanged(uint256 newPrice);
     event FreeMintLimitChanged(uint256 newLimit);
     event FreeMintCooldownChanged(uint256 newCooldown);
     event FeeReceiverChanged(address newFeeReceiver);
     event CapsSignerChanged(address newSigner);
     event LockedFirstMintToken(uint256 tokenId);
-    event CapsOpened(address indexed account, uint256 tokenId, bool premium);
+    event CapsOpened(address indexed account, uint256 tokenId, bool premium, bool isPack);
     event MintedWithSignature(address indexed account, bytes message, bytes signature);
 
     /* -------------------------------------------------------------------------- */
@@ -120,8 +142,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         freeMintLimit = 2;
         freeMintCooldown = 12 hours;
-        capsPrice = 0.001 ether;
-        premiumCapsPrice = 0.003 ether;
+
+        // Prices
+        capsPriceByQuantity[1] = 0.0003 ether;
+        capsPriceByQuantity[3] = 0.0006 ether;
+        capsPriceByQuantity[10] = 0.0018 ether;
+        premiumCapsPriceByQuantity[1] = 0.0009 ether;
+        premiumCapsPriceByQuantity[3] = 0.00225 ether;
+        premiumCapsPriceByQuantity[10] = 0.0054 ether;
+        premiumPackPrice = 0.0036 ether;
 
         // Set the default royalty to 0
         _setDefaultRoyalty(feeReceiver, 0);
@@ -209,31 +238,56 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Buy a caps with the price of {capsPrice}.
+     * @param isPremium Whether the caps is premium or not.
+     * @param quantity The quantity of caps to buy.
      */
-    function buyCaps(bool isPremium) external payable {
-        uint256 price = isPremium ? premiumCapsPrice : capsPrice;
+    function buyCaps(bool isPremium, uint256 quantity) external payable {
+        uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
         if (msg.value != price) revert WRONG_VALUE();
 
         // Transfer the caps price to the fee receiver
-        (bool success,) = payable(feeReceiver).call{value: capsPrice}("");
+        (bool success,) = payable(feeReceiver).call{value: price}("");
         if (!success) revert FEE_TRANSFER_FAILED();
 
         unchecked {
             if (isPremium) {
-                paidPremiumCapsBalanceOf[msg.sender]++;
+                paidPremiumCapsBalanceOf[msg.sender] += quantity;
             } else {
-                paidCapsBalanceOf[msg.sender]++;
+                paidCapsBalanceOf[msg.sender] += quantity;
             }
         }
+    }
+
+    /**
+     * @notice Buy a premium pack with the price of {premiumPackPrice}.
+     */
+    function buyPack() external payable {
+        if (msg.value != premiumPackPrice) revert WRONG_VALUE();
+
+        // Give the caps to the buyer
+        paidCapsBalanceOf[msg.sender] += 10;
+        // Give the premium caps to the buyer
+        paidPremiumCapsBalanceOf[msg.sender] += 3;
+
+        // Mint the NFT in the pack
+        _mint(msg.sender, tokenId);
+        tokenId++;
+
+        // Transfer the caps price to the fee receiver
+        (bool success,) = payable(feeReceiver).call{value: premiumPackPrice}("");
+        if (!success) revert FEE_TRANSFER_FAILED();
+
+        // Emit the CapsOpened
+        emit CapsOpened(msg.sender, tokenId - 1, false, true);
     }
 
     /**
      * @notice Burn a token.
      * @param _tokenId The ID of the token to burn.
      */
-    function burn (uint256 _tokenId) public override {
+    function burn(uint256 _tokenId) public override {
         /**
-         * @dev Bypass the transfer lock for the burn function because we want to allow the 
+         * @dev Bypass the transfer lock for the burn function because we want to allow the
          *      owner to burn his transfer locked tokens.
          */
         ERC721._update(address(0), _tokenId, _msgSender());
@@ -243,14 +297,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Burn a batch of tokens.
      * @param tokenIds The IDs of the tokens to burn.
      */
-    function batchBurn(uint256[] calldata tokenIds) external {
+    function batchBurn(uint256[] memory tokenIds) external {
         uint256 length = tokenIds.length;
         for (uint256 i = 0; i != length;) {
             /**
-             * @dev Bypass the transfer lock for the burn function because we want to allow the 
+             * @dev Bypass the transfer lock for the burn function because we want to allow the
              *      owner to burn his transfer locked tokens, it also save a lot of gas here.
              */
-            ERC721._update(address(0), tokenId, _msgSender());
+            ERC721._update(address(0), tokenIds[i], _msgSender());
 
             unchecked {
                 i++;
@@ -316,18 +370,27 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the caps price.
      * @param price The new caps price.
      */
-    function setCapsPrice(uint256 price) external onlyOwner {
-        capsPrice = price;
-        emit CapsPriceChanged(price);
+    function setCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
+        capsPriceByQuantity[quantity] = price;
+        emit CapsPriceChanged(quantity, price);
     }
 
     /**
      * @notice Set the premium caps price.
      * @param price The new premium caps price.
      */
-    function setPremiumCapsPrice(uint256 price) external onlyOwner {
-        premiumCapsPrice = price;
-        emit PremiumCapsPriceChanged(price);
+    function setPremiumCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
+        premiumCapsPriceByQuantity[quantity] = price;
+        emit PremiumCapsPriceChanged(quantity, price);
+    }
+
+    /**
+     * @notice Set the premium pack price.
+     * @param price The new premium pack price.
+     */
+    function setPremiumPackPrice(uint256 price) external onlyOwner {
+        premiumPackPrice = price;
+        emit PremiumPackPriceChanged(price);
     }
 
     /**
@@ -403,9 +466,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         tokenId++;
 
         // Emit the CapsOpened events
-        emit CapsOpened(msg.sender, tokenId - 3, isPremium);
-        emit CapsOpened(msg.sender, tokenId - 2, isPremium);
-        emit CapsOpened(msg.sender, tokenId - 1, isPremium);
+        emit CapsOpened(msg.sender, tokenId - 3, isPremium, false);
+        emit CapsOpened(msg.sender, tokenId - 2, isPremium, false);
+        emit CapsOpened(msg.sender, tokenId - 1, isPremium, false);
     }
 
     /**
