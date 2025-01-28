@@ -23,6 +23,8 @@ contract VeggiaERC721TransferLockTest is Test {
         assertEq(veggia.capsBalanceOf(address(this)), 3);
 
         // First mint should mint 3 tokens
+        vm.expectEmit(false, false, false, true);
+        emit VeggiaERC721.LockedFirstMintToken(2);
         veggia.freeMint3();
 
         assertEq(veggia.balanceOf(address(this)), 3);
