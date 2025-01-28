@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
 import {ERC721TransferLock} from "./ERC721TransferLock.sol";
@@ -176,6 +176,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @dev Free mint is only allowed once per {freeMintCooldown} seconds with a maximum of {freeMintLimit} staked caps.
      */
     function freeMint3() external {
+        /// @dev Cache the values to avoid multiple SLOADs
         uint256 _freeMintLimit = freeMintLimit;
         uint256 _freeMintCooldown = freeMintCooldown;
 
