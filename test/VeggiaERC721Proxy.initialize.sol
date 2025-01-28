@@ -38,14 +38,14 @@ contract VeggiaERC721ProxyInitializeTest is Test {
         assertEq(veggia.owner(), owner);
         assertEq(veggia.feeReceiver(), feeReceiver);
 
-        assertEq(veggia.freeMintLimit(), 2);
+        assertEq(veggia.freeMintLimit(), 6);
         assertEq(veggia.freeMintCooldown(), 12 hours);
-        assertEq(veggia.capsPriceByQuantity(1), 0.0003 ether);
-        assertEq(veggia.capsPriceByQuantity(3), 0.0006 ether);
-        assertEq(veggia.capsPriceByQuantity(10), 0.0018 ether);
-        assertEq(veggia.premiumCapsPriceByQuantity(1), 0.0009 ether);
-        assertEq(veggia.premiumCapsPriceByQuantity(3), 0.00225 ether);
-        assertEq(veggia.premiumCapsPriceByQuantity(10), 0.0054 ether);
+        assertEq(veggia.capsPriceByQuantity(3), 0.0003 ether);
+        assertEq(veggia.capsPriceByQuantity(9), 0.0006 ether);
+        assertEq(veggia.capsPriceByQuantity(30), 0.0018 ether);
+        assertEq(veggia.premiumCapsPriceByQuantity(3), 0.0009 ether);
+        assertEq(veggia.premiumCapsPriceByQuantity(9), 0.00225 ether);
+        assertEq(veggia.premiumCapsPriceByQuantity(30), 0.0054 ether);
         assertEq(veggia.premiumPackPrice(), 0.0036 ether);
 
         veggia.forceMint(address(this), 1);

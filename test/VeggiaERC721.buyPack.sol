@@ -39,8 +39,8 @@ contract VeggiaERC721buyPremiumPackTest is Test {
         veggia.buyPremiumPack{value: price}();
 
         assertEq(veggia.balanceOf(address(this)), 1, "Initial token balance should be 0");
-        assertEq(veggia.capsBalanceOf(address(this)), 13, "Initial caps balance should be 0");
-        assertEq(veggia.paidCapsBalanceOf(address(this)), 10, "Initial paid caps balance should be 0");
+        assertEq(veggia.capsBalanceOf(address(this)), 15, "Initial caps balance should be 0");
+        assertEq(veggia.paidCapsBalanceOf(address(this)), 12, "Initial paid caps balance should be 0");
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 3, "Initial paid premium caps balance should be 0");
     }
 

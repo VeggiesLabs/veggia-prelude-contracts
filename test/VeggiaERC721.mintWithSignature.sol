@@ -8,7 +8,7 @@ import {SERVER_SIGNER} from "./utils/constants.sol";
 contract VeggiaERC721MintWithSignatureTest is Test {
     VeggiaERC721 public veggia;
 
-    function test_mintWithSignature(string memory random, uint256 index, bool isPremium, address user) public {
+    function test_mint3WithSignature(string memory random, uint256 index, bool isPremium, address user) public {
         vm.assume(user != address(0));
         (address serverSigner, uint256 signer) = makeAddrAndKey(random);
 
@@ -25,7 +25,7 @@ contract VeggiaERC721MintWithSignatureTest is Test {
         assertEq(veggia.tokenId(), 0);
 
         vm.prank(user);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
 
         assertEq(veggia.balanceOf(user), 3);
         assertEq(veggia.tokenId(), 3);
@@ -50,7 +50,7 @@ contract VeggiaERC721MintWithSignatureTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INVALID_SIGNATURE.selector));
         vm.prank(user);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
 
         assertEq(veggia.balanceOf(user), 0);
         assertEq(veggia.tokenId(), 0);
@@ -76,7 +76,7 @@ contract VeggiaERC721MintWithSignatureTest is Test {
         assertEq(veggia.tokenId(), 0);
 
         vm.prank(user);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
 
         assertEq(veggia.balanceOf(user), 3);
         assertEq(veggia.tokenId(), 3);
@@ -84,7 +84,7 @@ contract VeggiaERC721MintWithSignatureTest is Test {
         // Reuse signature
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.SIGNATURE_REUSED.selector));
         vm.prank(user);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
     }
 
     function test_MintWithSignatureInvalidSender(string memory random, uint256 index, bool isPremium, address user)
@@ -111,14 +111,14 @@ contract VeggiaERC721MintWithSignatureTest is Test {
         // Try to use the signature with a msg.sender != user
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.INVALID_SENDER.selector, invalidSender, user));
         vm.prank(invalidSender);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
 
         assertEq(veggia.balanceOf(user), 0);
         assertEq(veggia.balanceOf(invalidSender), 0);
         assertEq(veggia.tokenId(), 0);
     }
 
-    function test_raw_mintWithSignature() public {
+    function test_raw_mint3WithSignature() public {
         address serverSigner = 0x2f9e4Ffc85257247e9061A3EE9d3b6b23eF560E9;
         veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
         veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
@@ -137,6 +137,6 @@ contract VeggiaERC721MintWithSignatureTest is Test {
 
         // mint
         vm.prank(to);
-        veggia.mintWithSignature(signature, message);
+        veggia.mint3WithSignature(signature, message);
     }
 }

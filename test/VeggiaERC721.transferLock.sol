@@ -20,10 +20,10 @@ contract VeggiaERC721TransferLockTest is Test {
      */
     function test_transferFirst3Tokens() public {
         vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
-        assertEq(veggia.capsBalanceOf(address(this)), 1);
+        assertEq(veggia.capsBalanceOf(address(this)), 3);
 
         // First mint should mint 3 tokens
-        veggia.freeMint();
+        veggia.freeMint3();
 
         assertEq(veggia.balanceOf(address(this)), 3);
 
@@ -40,10 +40,10 @@ contract VeggiaERC721TransferLockTest is Test {
 
     function test_burnLockedTokens() public {
         vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
-        assertEq(veggia.capsBalanceOf(address(this)), 1);
+        assertEq(veggia.capsBalanceOf(address(this)), 3);
 
         // First mint should mint 3 tokens
-        veggia.freeMint();
+        veggia.freeMint3();
 
         assertEq(veggia.balanceOf(address(this)), 3);
 
@@ -62,10 +62,10 @@ contract VeggiaERC721TransferLockTest is Test {
 
     function test_batchBurnLockedTokens() public {
         vm.warp((veggia.freeMintCooldown() * 3) / 2); // 1.5 * cooldown
-        assertEq(veggia.capsBalanceOf(address(this)), 1);
+        assertEq(veggia.capsBalanceOf(address(this)), 3);
 
         // First mint should mint 3 tokens
-        veggia.freeMint();
+        veggia.freeMint3();
 
         assertEq(veggia.balanceOf(address(this)), 3);
         assertFalse(veggia.isTokenLocked(0));
@@ -86,8 +86,8 @@ contract VeggiaERC721TransferLockTest is Test {
      */
     function test_transferFirst3PaidTokens() public {
         // Buy an egg and open it to mint 3 tokens
-        veggia.buyCaps{value: veggia.capsPriceByQuantity(1)}(false, 1);
-        veggia.mint(false);
+        veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+        veggia.mint3(false);
 
         assertEq(veggia.balanceOf(address(this)), 3);
 
@@ -111,7 +111,7 @@ contract VeggiaERC721TransferLockTest is Test {
 
         for (uint256 i = 0; i < mintAmount; i += 3) {
             vm.warp(block.timestamp + (veggia.freeMintCooldown()));
-            veggia.freeMint();
+            veggia.freeMint3();
 
             veggia.transferFrom(address(this), address(0x1), i);
             veggia.transferFrom(address(this), address(0x1), i + 1);
@@ -132,8 +132,8 @@ contract VeggiaERC721TransferLockTest is Test {
 
         for (uint256 i = 0; i < mintAmount; i += 3) {
             // Buy an egg and open it to mint 3 tokens
-            veggia.buyCaps{value: veggia.capsPriceByQuantity(1)}(false, 1);
-            veggia.mint(false);
+            veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+            veggia.mint3(false);
 
             veggia.transferFrom(address(this), address(0x1), i);
             veggia.transferFrom(address(this), address(0x1), i + 1);

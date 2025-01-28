@@ -158,12 +158,12 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         freeMintCooldown = 12 hours;
 
         // Prices
-        capsPriceByQuantity[1] = 0.0003 ether;
-        capsPriceByQuantity[3] = 0.0006 ether;
-        capsPriceByQuantity[10] = 0.0018 ether;
-        premiumCapsPriceByQuantity[1] = 0.0009 ether;
-        premiumCapsPriceByQuantity[3] = 0.00225 ether;
-        premiumCapsPriceByQuantity[10] = 0.0054 ether;
+        capsPriceByQuantity[3] = 0.0003 ether;
+        capsPriceByQuantity[9] = 0.0006 ether;
+        capsPriceByQuantity[30] = 0.0018 ether;
+        premiumCapsPriceByQuantity[3] = 0.0009 ether;
+        premiumCapsPriceByQuantity[9] = 0.00225 ether;
+        premiumCapsPriceByQuantity[30] = 0.0054 ether;
         premiumPackPrice = 0.0036 ether;
 
         // Set the default royalty to 0
@@ -360,7 +360,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function capsBalanceOf(address account) public view returns (uint256) {
         // DIV op floor the result
-        uint256 freeCapsBalance = (block.timestamp - lastMintTimestamp[account]) / freeMintCooldown;
+        uint256 freeCapsBalance = ((block.timestamp - lastMintTimestamp[account]) / freeMintCooldown) * 3;
         freeCapsBalance = freeCapsBalance > freeMintLimit ? freeMintLimit : freeCapsBalance;
 
         // Return the sum of paid and free caps balance
