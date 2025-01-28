@@ -170,7 +170,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         premiumPackPrice = 0.0036 ether;
 
         // Set the default royalty to 0
-        _setDefaultRoyalty(feeReceiver, 0);
+        _setDefaultRoyalty(_feeReceiver, 0);
     }
 
     /* -------------------------------------------------------------------------- */
