@@ -9,6 +9,12 @@ import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ER
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 
+/**
+ * @title VeggiaERC721
+ * @author @VeggiesLabs
+ * @notice A contract for the Veggia NFTs.
+ * @dev This contract is based on the ERC721 standard with additional features.
+ */
 contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable {
     /* -------------------------------------------------------------------------- */
     /*                                   Storage                                  */
@@ -224,13 +230,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param isPremium Whether the caps is premium or not.
      */
     function mint3(bool isPremium) external {
-        uint256 balance;
-        balance = isPremium ? paidPremiumCapsBalanceOf[msg.sender] : paidCapsBalanceOf[msg.sender];
+        uint256 balance = isPremium ? paidPremiumCapsBalanceOf[msg.sender] : paidCapsBalanceOf[msg.sender];
 
         if (balance < 3) {
             revert INSUFFICIENT_CAPS_BALANCE();
         }
 
+        /// @dev We can safely subtract 3 from the balance because we already checked
+        ///      that the balance is at least 3.
         unchecked {
             if (isPremium) {
                 paidPremiumCapsBalanceOf[msg.sender] -= 3;
@@ -238,13 +245,18 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
                 paidCapsBalanceOf[msg.sender] -= 3;
             }
         }
+
+        // Mint the NFTs
         _open3CapsForSender(isPremium);
     }
 
     /**
-     * @notice Mint 3 new token using an authorized signature.
-     * @param signature The signature to verify.
-     * @param message The signed message.
+     * @notice Open a caps that mint 3 new tokens to the message sender using an authorized signature.
+     * @param signature The signature that authorizes the mint.
+     * @param message The signed message containing the mint information.
+     *                  - address to: The address to mint the tokens to.
+     *                  - uint256 index: The index of the mint.
+     *                  - bool isPremium: Whether the mint is premium or not.
      */
     function mint3WithSignature(bytes memory signature, bytes calldata message) external {
         // Verify the signature
@@ -252,12 +264,18 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         address recoveredSigner = ECDSA.recover(messageHash, signature);
         if (recoveredSigner != capsSigner) revert INVALID_SIGNATURE();
 
+        // Decode the message
         (address to, uint256 index, bool isPremium) = abi.decode(message, (address, uint256, bool));
+
+        // Check if the signature has already been used
         if (signatureMintsOf[to][index]) revert SIGNATURE_REUSED();
 
-        signatureMintsOf[to][index] = true;
-
+        // Check if the sender is the expected one
+        /// @dev Only the "to" address can use the signature
         if (to != msg.sender) revert INVALID_SENDER(msg.sender, to);
+
+        // Mark the signature as used
+        signatureMintsOf[to][index] = true;
 
         // Mint the NFTs
         _open3CapsForSender(isPremium);
@@ -269,7 +287,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Buy a caps with the price of {capsPrice}.
      * @param isPremium Whether the caps is premium or not.
      * @param quantity The quantity of caps to buy.
-     * @dev The quantity must be 3 or more.
+     * @dev The quantity must be a multiple of 3 because each mint opens 3 caps.
      */
     function buyCaps(bool isPremium, uint256 quantity) external payable {
         if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
@@ -295,26 +313,32 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Buy a premium pack with the price of {premiumPackPrice}.
-     * @dev The premium pack contains 1 NFT mint + 10 caps + 3 premium caps.
+     * @dev The premium pack contains 1 NFT mint + 12 caps + 3 premium caps.
      */
     function buyPremiumPack() external payable {
         if (msg.value != premiumPackPrice) revert WRONG_VALUE();
 
-        // Give the caps to the buyer
+        // Give the caps to the buyer (12 caps because 12 is a multiple of 3)
         paidCapsBalanceOf[msg.sender] += 12;
         // Give the premium caps to the buyer
         paidPremiumCapsBalanceOf[msg.sender] += 3;
 
-        // Mint the NFT in the pack (open a caps directly)
-        _mint(msg.sender, tokenId);
-        tokenId++;
+        // Mint the NFT in the pack
+        /// @dev open a single caps directly because the premium pack contains 1 NFT mint
+        uint256 _tokenId = tokenId; // Cache the tokenId in memory
+        _mint(msg.sender, _tokenId);
+
+        // tokenId can be safely incremented
+        unchecked {
+            tokenId++;
+        }
 
         // Transfer the caps price to the fee receiver
         (bool success,) = payable(feeReceiver).call{value: premiumPackPrice}("");
         if (!success) revert FEE_TRANSFER_FAILED();
 
         // Emit the CapsOpened event corresponding to the minted token
-        emit CapsOpened(msg.sender, tokenId - 1, false, true);
+        emit CapsOpened(msg.sender, _tokenId, false, true);
     }
 
     /**
@@ -334,8 +358,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param tokenIds The IDs of the tokens to burn.
      */
     function batchBurn(uint256[] memory tokenIds) external {
+        // Cache the length to avoid accessing array's length in the loop
         uint256 length = tokenIds.length;
-        for (uint256 i = 0; i != length;) {
+        for (uint256 i; i != length;) {
             /**
              * @dev Bypass the transfer lock for the burn function because we want to allow the
              *      owner to burn his transfer locked tokens, it also save a lot of gas here.
@@ -358,8 +383,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @return The caps balance of the account.
      */
     function capsBalanceOf(address account) public view returns (uint256) {
-        // DIV op floor the result
+        /// @dev DIV op floor the result
         uint256 freeCapsBalance = ((block.timestamp - lastMintTimestamp[account]) / freeMintCooldown) * 3;
+
+        // Limit the free caps balance to the free mint limit
         freeCapsBalance = freeCapsBalance > freeMintLimit ? freeMintLimit : freeCapsBalance;
 
         // Return the sum of paid and free caps balance
@@ -500,18 +527,24 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Open a caps that mints 3 new token to the message sender.
      */
     function _open3CapsForSender(bool isPremium) private {
-        _mint(msg.sender, tokenId);
-        tokenId++;
-        _mint(msg.sender, tokenId);
-        tokenId++;
-        _mint(msg.sender, tokenId);
-        _lockFirstMintToken(tokenId);
-        tokenId++;
+        // Cache the tokenId in memory
+        uint256 _tokenId = tokenId;
+
+        _mint(msg.sender, _tokenId);
+        _mint(msg.sender, _tokenId + 1);
+        _mint(msg.sender, _tokenId + 2);
+        _lockFirstMintToken(_tokenId + 2);
+
+        // Increment the tokenId
+        /// @dev tokenId can be safely incremented
+        unchecked {
+            tokenId += 3;
+        }
 
         // Emit the CapsOpened events
-        emit CapsOpened(msg.sender, tokenId - 3, isPremium, false);
-        emit CapsOpened(msg.sender, tokenId - 2, isPremium, false);
-        emit CapsOpened(msg.sender, tokenId - 1, isPremium, false);
+        emit CapsOpened(msg.sender, _tokenId, isPremium, false);
+        emit CapsOpened(msg.sender, _tokenId + 1, isPremium, false);
+        emit CapsOpened(msg.sender, _tokenId + 2, isPremium, false);
     }
 
     /**
