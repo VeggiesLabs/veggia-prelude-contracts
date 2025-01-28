@@ -16,10 +16,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /* ---------------------------- Bytes32 storages ---------------------------- */
     /**
-     * @notice Whether the contract is initialized or not.
-     */
-    bool public initialized;
-    /**
      * @notice The limit of available free caps per account.
      */
     uint256 public freeMintLimit;
@@ -144,8 +140,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _baseUri The base URI of the token.
      */
     function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
-        if (initialized) revert ALREADY_INITIALIZED();
-        initialized = true;
+        /// @dev Skips owner verification as the proxy is already ownable.
+        /// @dev Skips initialization check as the proxy handles the initialization check internally.
 
         _transferOwnership(_owner);
 
