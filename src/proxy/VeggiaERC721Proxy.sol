@@ -6,9 +6,18 @@ import {VeggiaERC721} from "../VeggiaERC721.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
+/**
+ * @title VeggiaERC721Proxy
+ * @author @VeggiesLabs
+ * @notice A proxy contract to upgrade the VeggiaERC721 contract.
+ */
 contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
+    /// @dev The initialization status of the contract.
     bool initialized;
 
+    /* -------------------------------------------------------------------------- */
+    /*                                   Errors                                   */
+    /* -------------------------------------------------------------------------- */
     error ALREADY_INITIALIZED();
     error INITIALIZATION_FAILED();
     error CAN_NOT_RECEIVE_ETHER();
@@ -18,7 +27,9 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
 
     /**
      * @notice Initialize the contract.
+     * @param owner The owner of the contract.
      * @param _feeReceiver The address that will receive the egg price.
+     * @param _capsSigner The address that will sign the caps.
      * @param _baseUri The base URI of the token.
      */
     function initialize(address owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
@@ -47,6 +58,9 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
         return _proxyAdmin();
     }
 
+    /**
+     * @notice Revert with a custom message when receiving ether.
+     */
     receive() external payable {
         revert CAN_NOT_RECEIVE_ETHER();
     }
