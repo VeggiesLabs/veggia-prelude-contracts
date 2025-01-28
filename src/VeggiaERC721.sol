@@ -277,10 +277,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         if (price == 0) revert UNKNOWN_PRICE_FORE(quantity, isPremium);
         if (msg.value != price) revert WRONG_VALUE();
 
-        // Transfer the caps price to the fee receiver
-        (bool success,) = payable(feeReceiver).call{value: msg.value}("");
-        if (!success) revert FEE_TRANSFER_FAILED();
-
         unchecked {
             if (isPremium) {
                 paidPremiumCapsBalanceOf[msg.sender] += quantity;
@@ -288,6 +284,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
                 paidCapsBalanceOf[msg.sender] += quantity;
             }
         }
+
+        // Transfer the caps price to the fee receiver at the end of the function for 
+        // consistency with the typical CEI pattern.
+        (bool success,) = payable(feeReceiver).call{value: msg.value}("");
+        if (!success) revert FEE_TRANSFER_FAILED();
     }
 
     /**
