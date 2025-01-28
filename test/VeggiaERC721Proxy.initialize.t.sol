@@ -55,6 +55,16 @@ contract VeggiaERC721ProxyInitializeTest is Test {
         assertEq(proxy.admin(), proxyAdmin);
     }
 
+    function test_initializeTwice() public {
+        address initialOwner = address(0x1111);
+
+        test_initialize();
+
+        vm.prank(initialOwner);
+        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721Proxy.ALREADY_INITIALIZED.selector));
+        veggia.initialize(address(0x1234), address(0x5678), address(0x9999), "http://localhost:4000/");
+    }
+
     function test_proxyCantReceiveEth() public {
         veggia = new VeggiaERC721(address(0), "");
         proxy = new VeggiaERC721Proxy(address(veggia), address(this));
