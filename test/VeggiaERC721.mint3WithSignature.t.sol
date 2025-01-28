@@ -24,6 +24,8 @@ contract VeggiaERC721MintWithSignatureTest is Test {
         assertEq(veggia.balanceOf(user), 0);
         assertEq(veggia.tokenId(), 0);
 
+        vm.expectEmit(true, true, false, true);
+        emit VeggiaERC721.MintedWithSignature(user, message, signature);
         vm.prank(user);
         veggia.mint3WithSignature(signature, message);
 
