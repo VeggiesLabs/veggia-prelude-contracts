@@ -1,4 +1,4 @@
-<img align="right" width="150" height="150" top="100" src="https://avatars.githubusercontent.com/u/134503782?s=200&v=4">
+![Veggia](/assets/veggia-banner.png)
 
 # VeggiaERC721 Protocol
 
