@@ -16,11 +16,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /* ---------------------------- Bytes32 storages ---------------------------- */
     /**
-     * @notice The limit of available free mint per account.
+     * @notice Whether the contract is initialized or not.
+     */
+    bool public initialized;
+    /**
+     * @notice The limit of available free caps per account.
      */
     uint256 public freeMintLimit;
     /**
-     * @notice The cooldown time to unlock a new free mint.
+     * @notice The cooldown time to unlock a new freeMint3.
      * @dev Default is 12 hours.
      */
     uint256 public freeMintCooldown;
@@ -88,8 +92,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error NOT_ENOUGH_VALUE();
     /// @dev Throws if the value sent is not the expected one.
     error WRONG_VALUE();
+    /// @dev Throws if the caps quantity is less than 3
+    error UNKNOWN_PRICE_FORE(uint256 quantity, bool isPremium);
     /// @dev Throws if the quantity is not the expected one.
-    error WRONG_CAPS_AMOUNT();
+    error WRONG_CAPS_QUANTITY();
     /// @dev Throws if the fee transfer failed.
     error FEE_TRANSFER_FAILED();
     /// @dev Throws if the contract is already initialized.
@@ -100,6 +106,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error SIGNATURE_REUSED();
     /// @dev Throws if the sender is not the expected one.
     error INVALID_SENDER(address sender, address expected);
+    /// @dev Throws if the free mint limit is not a multiple of 3.
+    error FREE_MINT_LIMIT_MUST_BE_MULTIPLE_OF_3();
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -130,19 +138,23 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Initialize the contract.
+     * @param _owner The owner of the contract.
      * @param _feeReceiver The address that will receive the caps price.
+     * @param _capsSigner The address that can sign the mintWithSignature message.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(address owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
-        if (freeMintLimit != 0) revert ALREADY_INITIALIZED();
+    function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
+        if (initialized) revert ALREADY_INITIALIZED();
+        initialized = true;
 
-        _transferOwnership(owner);
+        _transferOwnership(_owner);
 
         baseURI = _baseUri;
         capsSigner = _capsSigner;
         feeReceiver = _feeReceiver;
 
-        freeMintLimit = 2;
+        // Must be a multiple of 3
+        freeMintLimit = 6;
         freeMintCooldown = 12 hours;
 
         // Prices
@@ -163,64 +175,80 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @notice Open a caps that mints 3 new token for free.
+     * @notice Open 3 caps that mints 1 new token each.
      * @dev Free mint is only allowed once per {freeMintCooldown} seconds with a maximum of {freeMintLimit} staked caps.
      */
-    function freeMint() external {
+    function freeMint3() external {
         uint256 _freeMintLimit = freeMintLimit;
         uint256 _freeMintCooldown = freeMintCooldown;
 
-        // Calculate the elapsed time since the last mint
+        // Time elapsed since the last mint
         uint256 elapsedTime = block.timestamp - lastMintTimestamp[msg.sender];
 
-        // Calculate total accumulated rights (limited to `freeMintLimit`)
-        uint256 totalCapsBalance = elapsedTime / _freeMintCooldown;
-        if (totalCapsBalance > _freeMintLimit) {
-            totalCapsBalance = _freeMintLimit;
+        // Full elapsed intervals since the last mint (each interval gives 3 caps)
+        /// @dev DIV op floor the result
+        uint256 intervals = elapsedTime / _freeMintCooldown;
+
+        // Total accumulated caps balance
+        uint256 totalCaps = intervals * 3;
+        if (totalCaps > _freeMintLimit) {
+            totalCaps = _freeMintLimit;
         }
 
         // Check if there is at least one full mint right available
-        if (totalCapsBalance == 0) revert INSUFFICIENT_CAPS_BALANCE();
+        if (totalCaps < 3) revert INSUFFICIENT_CAPS_BALANCE();
 
-        if (elapsedTime / _freeMintCooldown > _freeMintLimit) {
-            lastMintTimestamp[msg.sender] = block.timestamp - _freeMintCooldown * (_freeMintLimit - 1);
-        } else {
-            lastMintTimestamp[msg.sender] =
-                block.timestamp - (_freeMintCooldown * (totalCapsBalance - 1)) - (elapsedTime % _freeMintCooldown);
+        // Consume 3 caps on the total accumulated balance
+        uint256 leftoverCaps = totalCaps - 3;
+
+        // Amount of intervals left after the 3 caps consumption
+        uint256 leftoverIntervals = leftoverCaps / 3;
+
+        // Partial rest of the currently active interval
+        uint256 remainderTime = elapsedTime % _freeMintCooldown;
+
+        // If the eslaed time is more the waiting time limit, ignore excess waiting time
+        if (elapsedTime >= _freeMintCooldown * (_freeMintLimit / 3)) {
+            remainderTime = 0;
         }
 
+        // New "lastMintTimestamp" = start from block.timestamp
+        // minus leftoverIntervals intervals
+        // minus remainderTime (to avoid double-counting the partially started interval)
+        lastMintTimestamp[msg.sender] = block.timestamp - (leftoverIntervals * _freeMintCooldown) - remainderTime;
+
         // Mint the NFTs
-        _openCapsForSender(false);
+        _open3CapsForSender(false);
     }
 
     /**
-     * @notice Open a caps that mints 3 new token.
+     * @notice Open 3 caps that mints 1 new token each.
      * @param isPremium Whether the caps is premium or not.
      */
-    function mint(bool isPremium) external {
+    function mint3(bool isPremium) external {
         uint256 balance;
         balance = isPremium ? paidPremiumCapsBalanceOf[msg.sender] : paidCapsBalanceOf[msg.sender];
 
-        if (balance == 0) {
+        if (balance < 3) {
             revert INSUFFICIENT_CAPS_BALANCE();
         }
 
         unchecked {
             if (isPremium) {
-                paidPremiumCapsBalanceOf[msg.sender]--;
+                paidPremiumCapsBalanceOf[msg.sender] -= 3;
             } else {
-                paidCapsBalanceOf[msg.sender]--;
+                paidCapsBalanceOf[msg.sender] -= 3;
             }
         }
-        _openCapsForSender(isPremium);
+        _open3CapsForSender(isPremium);
     }
 
     /**
-     * @notice Mint a new token using a signature.
+     * @notice Mint 3 new token using an authorized signature.
      * @param signature The signature to verify.
-     * @param message The message to sign.
+     * @param message The signed message.
      */
-    function mintWithSignature(bytes memory signature, bytes calldata message) external {
+    function mint3WithSignature(bytes memory signature, bytes calldata message) external {
         // Verify the signature
         bytes32 messageHash = keccak256(message);
         address recoveredSigner = ECDSA.recover(messageHash, signature);
@@ -234,7 +262,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         if (to != msg.sender) revert INVALID_SENDER(msg.sender, to);
 
         // Mint the NFTs
-        _openCapsForSender(isPremium);
+        _open3CapsForSender(isPremium);
 
         emit MintedWithSignature(msg.sender, message, signature);
     }
@@ -243,14 +271,18 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Buy a caps with the price of {capsPrice}.
      * @param isPremium Whether the caps is premium or not.
      * @param quantity The quantity of caps to buy.
+     * @dev The quantity must be 3 or more.
      */
     function buyCaps(bool isPremium, uint256 quantity) external payable {
+        if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
+
         uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
-        if (price == 0) revert WRONG_CAPS_AMOUNT();
+
+        if (price == 0) revert UNKNOWN_PRICE_FORE(quantity, isPremium);
         if (msg.value != price) revert WRONG_VALUE();
 
         // Transfer the caps price to the fee receiver
-        (bool success,) = payable(feeReceiver).call{value: price}("");
+        (bool success,) = payable(feeReceiver).call{value: msg.value}("");
         if (!success) revert FEE_TRANSFER_FAILED();
 
         unchecked {
@@ -264,16 +296,17 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Buy a premium pack with the price of {premiumPackPrice}.
+     * @dev The premium pack contains 1 NFT mint + 10 caps + 3 premium caps.
      */
-    function buyPack() external payable {
+    function buyPremiumPack() external payable {
         if (msg.value != premiumPackPrice) revert WRONG_VALUE();
 
         // Give the caps to the buyer
-        paidCapsBalanceOf[msg.sender] += 10;
+        paidCapsBalanceOf[msg.sender] += 12;
         // Give the premium caps to the buyer
         paidPremiumCapsBalanceOf[msg.sender] += 3;
 
-        // Mint the NFT in the pack
+        // Mint the NFT in the pack (open a caps directly)
         _mint(msg.sender, tokenId);
         tokenId++;
 
@@ -281,7 +314,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         (bool success,) = payable(feeReceiver).call{value: premiumPackPrice}("");
         if (!success) revert FEE_TRANSFER_FAILED();
 
-        // Emit the CapsOpened
+        // Emit the CapsOpened event corresponding to the minted token
         emit CapsOpened(msg.sender, tokenId - 1, false, true);
     }
 
@@ -398,6 +431,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param limit The new free mint limit.
      */
     function setFreeMintLimit(uint256 limit) external onlyOwner {
+        if (limit % 3 != 0) revert FREE_MINT_LIMIT_MUST_BE_MULTIPLE_OF_3();
         freeMintLimit = limit;
         emit FreeMintLimitChanged(limit);
     }
@@ -456,7 +490,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /**
      * @notice Open a caps that mints 3 new token to the message sender.
      */
-    function _openCapsForSender(bool isPremium) private {
+    function _open3CapsForSender(bool isPremium) private {
         _mint(msg.sender, tokenId);
         tokenId++;
         _mint(msg.sender, tokenId);
