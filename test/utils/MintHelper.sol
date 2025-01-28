@@ -9,7 +9,7 @@ library MintHelper {
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     Vm internal constant vm = Vm(VM_ADDRESS);
 
-    function forceMint(VeggiaERC721 veggia, address to, uint256 amount) public {
+    function forceMint3(VeggiaERC721 veggia, address to, uint256 amount) public {
         for (uint256 i = 0; i < amount; i++) {
             bytes32 index = keccak256(abi.encodePacked(i, block.timestamp));
             bytes memory message = abi.encode(to, index, false);
@@ -23,7 +23,7 @@ library MintHelper {
         }
     }
 
-    function forceMintPremium(VeggiaERC721 veggia, address to, uint256 amount) public {
+    function forceMint3Premium(VeggiaERC721 veggia, address to, uint256 amount) public {
         for (uint256 i = 0; i < amount; i++) {
             bytes32 index = keccak256(abi.encodePacked(i, block.timestamp));
             bytes memory message = abi.encode(to, index, true);

@@ -48,7 +48,7 @@ contract VeggiaERC721ProxyInitializeTest is Test {
         assertEq(veggia.premiumCapsPriceByQuantity(30), 0.0054 ether);
         assertEq(veggia.premiumPackPrice(), 0.0036 ether);
 
-        veggia.forceMint(address(this), 1);
+        veggia.forceMint3(address(this), 1);
         assertEq(veggia.tokenURI(0), "http://localhost:4000/0");
 
         assertEq(proxy.implementation(), implementation);

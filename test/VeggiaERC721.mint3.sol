@@ -14,6 +14,11 @@ contract VeggiaERC721Mint3Test is Test {
         veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
     }
 
+    // missing mint3
+    // missing capsBalanceOf
+    // missing all onlyOwner functions
+    // missing _open3CapsForSender
+
     function test_mint() public {
         // 1. buy a caps
         assertEq(veggia.capsBalanceOf(address(this)), 0);
