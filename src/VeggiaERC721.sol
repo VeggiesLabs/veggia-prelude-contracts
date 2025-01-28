@@ -287,7 +287,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
             }
         }
 
-        // Transfer the caps price to the fee receiver at the end of the function for 
+        // Transfer the caps price to the fee receiver at the end of the function for
         // consistency with the typical CEI pattern.
         (bool success,) = payable(feeReceiver).call{value: msg.value}("");
         if (!success) revert FEE_TRANSFER_FAILED();
