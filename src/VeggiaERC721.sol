@@ -119,6 +119,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event LockedFirstMintToken(uint256 tokenId);
     event CapsOpened(address indexed account, uint256 tokenId, bool premium, bool isPack);
     event MintedWithSignature(address indexed account, bytes message, bytes signature);
+    event DefaultRoyaltyChanged(address receiver, uint96 feeNumerator);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
@@ -458,6 +459,16 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     function setCapsSigner(address _capsSigner) external onlyOwner {
         capsSigner = _capsSigner;
         emit CapsSignerChanged(_capsSigner);
+    }
+
+    /**
+     * @notice Set the default royalty.
+     * @param _receiver The receiver of the royalty.
+     * @param _feeNumerator The fee numerator of the royalty.
+     */
+    function setDefaultRoyalty(address _receiver, uint96 _feeNumerator) external onlyOwner {
+        _setDefaultRoyalty(_receiver, _feeNumerator);
+        emit DefaultRoyaltyChanged(_receiver, _feeNumerator);
     }
 
     /* -------------------------------------------------------------------------- */

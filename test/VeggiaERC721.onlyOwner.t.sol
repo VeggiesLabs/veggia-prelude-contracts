@@ -125,4 +125,21 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
 
         assertEq(veggia.capsSigner(), address(0x77778888));
     }
+
+    function test_setDefaultRoyalty() public {
+        (address receiver, uint256 amount) = veggia.royaltyInfo(0, 1 ether);
+
+        assertEq(receiver, address(0x1234));
+        assertEq(amount, 0);
+
+        vm.expectEmit(false, false, false, true);
+        emit VeggiaERC721.DefaultRoyaltyChanged(address(0x9999), 1000);
+        vm.prank(owner);
+        veggia.setDefaultRoyalty(address(0x9999), 1000);
+
+        (receiver, amount) = veggia.royaltyInfo(0, 1 ether);
+
+        assertEq(receiver, address(0x9999));
+        assertEq(amount, 1 ether * 1000 / 10000);
+    }
 }
