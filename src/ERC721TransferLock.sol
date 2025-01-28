@@ -5,7 +5,8 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 
 /**
  * @title ERC721TransferLock
- * @dev ERC721TransferLock is an ERC721 contract that allows locking of token transfers.
+ * @author @VeggiesLabs
+ * @notice ERC721TransferLock is an ERC721 contract that allows locking of token transfers.
  * @dev Locked tokens cannot be unlocked.
  */
 abstract contract ERC721TransferLock is ERC721 {
