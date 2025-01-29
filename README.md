@@ -124,7 +124,7 @@ Below are the main features you can leverage in VeggiaERC721.
 
 - A **convenience** function to purchase a pack with:
   - 1 NFT directly minted,
-  - 10 standard caps + 3 premium caps (i.e., 12 “basic” plus 3 “premium,” or simply 10 + 3 in some versions).
+  - 12 standard caps + 3 premium caps (i.e., 12 “standard” plus 3 “premium,” or simply 12 + 3 in some versions).
 - The user pays the `premiumPackPrice`.
 - Upon purchase, the user automatically receives an NFT plus the additional cap balances.
 
