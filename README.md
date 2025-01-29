@@ -2,7 +2,7 @@
 
 # VeggiaERC721 Protocol
 
-Welcome to the **VeggiaERC721** protocol! This README provides a **comprehensive** and **professional** guide for developers and users who want to integrate or understand how this protocol works. Below, you will find detailed explanations about architecture, deployment, key functionalities, and various contract interactions.
+Welcome to the **VeggiaERC721** protocol! This README provides a guide for developers and users who want to integrate or understand how this protocol works. Below, you will find detailed explanations about architecture, deployment, key functionalities, and various contract interactions.
 
 ---
 
