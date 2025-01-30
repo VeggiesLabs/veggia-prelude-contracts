@@ -10,8 +10,5 @@ coverage:
 open-coverage:
 	genhtml -o coverage-report ./lcov.info --ignore-errors category && open coverage-report/index.html
 
-deploy-testnet:
-	bash script/testnet/deployAll
-
-upgrade-testnet:
-	bash script/testnet/upgradeTo
+deploy:
+	./script/deploy.sh

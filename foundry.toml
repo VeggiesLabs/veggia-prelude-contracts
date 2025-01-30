@@ -6,9 +6,15 @@ solc = "0.8.24"
 fallback_oz = true
 is_system = false 
 mode = "3"
+optimizer = true
+optimizer_runs = 2_000_000
 
 remappings = [
   "@openzeppelin/=lib/openzeppelin-contracts/",
   "forge-std/=lib/forge-std/src/",
   "openzeppelin-contracts/=lib/openzeppelin-contracts/"
 ]
+
+[etherscan]
+abstract-sepolia = { key = "${TESTNET_API_KEY}", url = "https://api-sepolia.abscan.org/api", chain = 11124 }
+abstract = { key = "${MAINNET_API_KEY}", url = "https://api.abscan.org/api", chain = 2741 }
