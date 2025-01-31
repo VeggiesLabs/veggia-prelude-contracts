@@ -9,6 +9,10 @@ mode = "3"
 optimizer = true
 optimizer_runs = 2_000_000
 
+[fuzz]
+show_progress = true
+runs = 200_000
+
 remappings = [
   "@openzeppelin/=lib/openzeppelin-contracts/",
   "forge-std/=lib/forge-std/src/",

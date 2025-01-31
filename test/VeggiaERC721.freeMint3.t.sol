@@ -148,6 +148,7 @@ contract VeggiaERC721FreeMintTest is Test {
                     ? balanceAfter - balanceBefore == 3
                     : balanceAfter - balanceBefore == 6
         );
+        assertLt(balanceAfter - balanceBefore, 7);
         assertEq(veggia.capsBalanceOf(address(this)), 0);
     }
 }
