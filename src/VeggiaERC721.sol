@@ -375,7 +375,7 @@ contract VeggiaERC721 is
 		// Mint the NFT in the pack
 		/// @dev open a single caps directly because the premium pack contains 1 NFT mint
 		uint256 _tokenId = tokenId; // Cache the tokenId in memory
-		_mint(msg.sender, _tokenId);
+		_safeMint(msg.sender, _tokenId);
 
 		// tokenId can be safely incremented
 		unchecked {
@@ -607,9 +607,9 @@ contract VeggiaERC721 is
 		// Cache the tokenId in memory
 		uint256 _tokenId = tokenId;
 
-		_mint(msg.sender, _tokenId);
-		_mint(msg.sender, _tokenId + 1);
-		_mint(msg.sender, _tokenId + 2);
+		_safeMint(msg.sender, _tokenId);
+		_safeMint(msg.sender, _tokenId + 1);
+		_safeMint(msg.sender, _tokenId + 2);
 		_lockFirstMintToken(_tokenId + 2);
 
 		// Increment the tokenId
