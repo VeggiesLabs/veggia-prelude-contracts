@@ -489,6 +489,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param price The new caps price.
      */
     function setCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
+        if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
         capsPriceByQuantity[quantity] = price;
         emit CapsPriceChanged(quantity, price);
     }
@@ -508,7 +509,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param price The new premium pack price.
      */
     function setPremiumPackPrice(uint256 price) external onlyOwner {
-        if (price % 3 != 0) revert WRONG_CAPS_QUANTITY();
         premiumPackPrice = price;
         emit PremiumPackPriceChanged(price);
     }
