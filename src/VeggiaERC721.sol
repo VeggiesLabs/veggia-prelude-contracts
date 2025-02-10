@@ -4,6 +4,7 @@ pragma solidity ^0.8.24;
 import {ERC721TransferLock} from "./ERC721TransferLock.sol";
 
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
@@ -16,7 +17,7 @@ import {EIP712Upgradeable} from "@openzeppelin-upgradable/contracts/utils/crypto
  * @notice A contract for the Veggia NFTs.
  * @dev This contract is based on the ERC721 standard with additional features.
  */
-contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable, EIP712Upgradeable {
+contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable2Step, EIP712Upgradeable {
     using ECDSA for bytes32;
 
     /* -------------------------------------------------------------------------- */
