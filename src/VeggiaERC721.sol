@@ -162,9 +162,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
     /* -------------------------------------------------------------------------- */
-    constructor(address _feeReceiver, string memory _baseUri) ERC721("Veggia", "VGIA") Ownable(msg.sender) {
-        baseURI = _baseUri;
-        feeReceiver = _feeReceiver;
+    constructor() ERC721("Veggia", "VGIA") Ownable(msg.sender) {
+        _disableInitializers();
     }
 
     /* -------------------------------------------------------------------------- */

@@ -16,7 +16,7 @@ contract DeployAll is Script {
         loadEnvVars();
 
         vm.startBroadcast();
-        VeggiaERC721 veggiaImplementation = new VeggiaERC721(address(0), "");
+        VeggiaERC721 veggiaImplementation = new VeggiaERC721();
         VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
 
         veggiaProxy.initialize(owner, feeReceiver, capsSigner, baseURI);

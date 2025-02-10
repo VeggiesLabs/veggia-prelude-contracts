@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: BUSL-1.1
+pragma solidity ^0.8.24;
+
+import {VeggiaERC721} from "src/VeggiaERC721.sol";
+import {VeggiaERC721Proxy} from "src/proxy/VeggiaERC721Proxy.sol";
+import {Vm} from "forge-std/Vm.sol";
+
+library DeployHelper {
+    address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
+    Vm internal constant vm = Vm(VM_ADDRESS);
+
+    function deployVeggia(address owner, address feeReceiver, address capsSigner, string memory baseURI)
+        internal
+        returns (VeggiaERC721)
+    {
+        VeggiaERC721 veggiaImplementation = new VeggiaERC721();
+        VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
+
+        vm.prank(owner);
+        veggiaProxy.initialize(owner, feeReceiver, capsSigner, baseURI);
+
+        return VeggiaERC721(address(veggiaProxy));
+    }
+}

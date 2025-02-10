@@ -22,7 +22,7 @@ contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
         address owner = address(0x1234);
         address feeReceiver = address(0x5678);
 
-        veggia = new VeggiaERC721(address(0), "");
+        veggia = new VeggiaERC721();
         address implementation = address(veggia);
 
         vm.recordLogs();
@@ -67,7 +67,7 @@ contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
     }
 
     function test_proxyCantReceiveEth() public {
-        veggia = new VeggiaERC721(address(0), "");
+        veggia = new VeggiaERC721();
         proxy = new VeggiaERC721Proxy(address(veggia), address(this));
         proxy.initialize(address(0x1234), address(0x5678), address(0x9999), "http://localhost:4000/");
 

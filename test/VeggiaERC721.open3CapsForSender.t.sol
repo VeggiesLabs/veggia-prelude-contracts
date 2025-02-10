@@ -6,14 +6,15 @@ import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {SignatureHelper} from "./utils/SignatureHelper.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
+import {DeployHelper} from "./utils/DeployHelper.sol";
 
 contract VeggiaERC721Open3CapsForSenderTest is Test, ERC721Holder {
     VeggiaERC721 public veggia;
 
     function setUp() public {
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
+        veggia = new VeggiaERC721();
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia.initialize(address(this), address(0x1234), serverSigner, "http://localhost:4000/");
+        veggia = DeployHelper.deployVeggia(address(this), address(0x1234), serverSigner, "http://localhost:4000/");
     }
 
     function test_freeMint3TokenIdIncrease() public {
@@ -97,10 +98,11 @@ contract VeggiaERC721Open3CapsForSenderTest is Test, ERC721Holder {
 
     function test_mint3WithSignature(string memory random, uint256 index, bool isPremium, address user) public {
         vm.assume(user != address(0));
+        vm.assume(user.code.length == 0);
         (address serverSigner, uint256 signer) = makeAddrAndKey(random);
 
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
-        veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
+        veggia = new VeggiaERC721();
+        veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
         assertEq(veggia.capsSigner(), serverSigner);
 
         VeggiaERC721.MintRequest memory req = VeggiaERC721.MintRequest(user, index, isPremium);

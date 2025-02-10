@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {MintHelper} from "./utils/MintHelper.sol";
+import {DeployHelper} from "./utils/DeployHelper.sol";
 
 contract VeggiaERC721BuyCapsTest is Test {
     using MintHelper for VeggiaERC721;
@@ -15,9 +16,9 @@ contract VeggiaERC721BuyCapsTest is Test {
     address user = address(0x5555);
 
     function setUp() public {
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
+        veggia = new VeggiaERC721();
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia.initialize(address(this), feeReceiver, serverSigner, "http://localhost:4000/");
+        veggia = DeployHelper.deployVeggia(address(this), feeReceiver, serverSigner, "http://localhost:4000/");
 
         // Ensure that the caps prices are initialized
         assertTrue(veggia.capsPriceByQuantity(3) != 0);
