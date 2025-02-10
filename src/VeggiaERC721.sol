@@ -143,6 +143,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error FREE_MINT_LIMIT_MUST_BE_MULTIPLE_OF_3();
     /// @dev Throws if the address is the zero address.
     error ZERO_ADDRESS();
+    /// @dev Throws if the cooldown is set to 0.
+    error ZERO_COOLDOWN();
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -528,6 +530,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param cooldown The new free mint cooldown.
      */
     function setFreeMintCooldown(uint256 cooldown) external onlyOwner {
+        if (cooldown == 0) revert ZERO_COOLDOWN();
         freeMintCooldown = cooldown;
         emit FreeMintCooldownChanged(cooldown);
     }
