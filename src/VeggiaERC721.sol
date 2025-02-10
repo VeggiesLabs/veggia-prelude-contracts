@@ -140,6 +140,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error INVALID_SENDER(address sender, address expected);
     /// @dev Throws if the free mint limit is not a multiple of 3.
     error FREE_MINT_LIMIT_MUST_BE_MULTIPLE_OF_3();
+    /// @dev Throws if the address is the zero address.
+    error ZERO_ADDRESS();
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -533,6 +535,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param receiver The new fee receiver.
      */
     function setFeeReceiver(address receiver) external onlyOwner {
+        if (receiver == address(0)) revert ZERO_ADDRESS();
         feeReceiver = receiver;
         emit FeeReceiverChanged(receiver);
     }
@@ -542,6 +545,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _capsSigner The new signer.
      */
     function setCapsSigner(address _capsSigner) external onlyOwner {
+        if (_capsSigner == address(0)) revert ZERO_ADDRESS();
         capsSigner = _capsSigner;
         emit CapsSignerChanged(_capsSigner);
     }
