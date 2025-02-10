@@ -4,8 +4,10 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
+import {SignatureHelper} from "./utils/SignatureHelper.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721Open3CapsForSenderTest is Test {
+contract VeggiaERC721Open3CapsForSenderTest is Test, ERC721Holder {
     VeggiaERC721 public veggia;
 
     function setUp() public {
@@ -101,10 +103,8 @@ contract VeggiaERC721Open3CapsForSenderTest is Test {
         veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
         assertEq(veggia.capsSigner(), serverSigner);
 
-        bytes memory message = abi.encode(user, index, isPremium);
-        bytes32 messageHash = keccak256(message);
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(uint256(signer), messageHash);
-        bytes memory signature = abi.encodePacked(r, s, v);
+        VeggiaERC721.MintRequest memory req = VeggiaERC721.MintRequest(user, index, isPremium);
+        bytes memory signature = SignatureHelper.signMint3As(veggia, bytes32(signer), user, isPremium, index);
 
         assertEq(veggia.balanceOf(user), 0);
         assertEq(veggia.tokenId(), 0);
@@ -117,10 +117,10 @@ contract VeggiaERC721Open3CapsForSenderTest is Test {
         emit VeggiaERC721.CapsOpened(user, 2, isPremium, false);
 
         vm.expectEmit(true, true, false, true);
-        emit VeggiaERC721.MintedWithSignature(user, message, signature);
+        emit VeggiaERC721.MintedWithSignature(user, req, signature);
 
         vm.prank(user);
-        veggia.mint3WithSignature(signature, message);
+        veggia.mint3WithSignature(req, signature);
 
         assertEq(veggia.balanceOf(user), 3);
         assertEq(veggia.tokenId(), 3);

@@ -5,8 +5,9 @@ import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {MintHelper} from "./utils/MintHelper.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721buyPremiumPackTest is Test {
+contract VeggiaERC721buyPremiumPackTest is Test, ERC721Holder {
     using MintHelper for VeggiaERC721;
 
     VeggiaERC721 public veggia;

@@ -4,8 +4,9 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721Mint3Test is Test {
+contract VeggiaERC721Mint3Test is Test, ERC721Holder {
     VeggiaERC721 public veggia;
 
     function setUp() public {

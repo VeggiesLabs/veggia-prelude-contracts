@@ -5,8 +5,9 @@ import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {ERC721TransferLock} from "../src/ERC721TransferLock.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721TransferLockTest is Test {
+contract VeggiaERC721TransferLockTest is Test, ERC721Holder {
     VeggiaERC721 public veggia;
 
     function setUp() public {

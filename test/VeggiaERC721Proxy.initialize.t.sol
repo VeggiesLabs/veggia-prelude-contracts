@@ -7,8 +7,9 @@ import {VeggiaERC721Proxy} from "../src/proxy/VeggiaERC721Proxy.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {MintHelper} from "./utils/MintHelper.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721ProxyInitializeTest is Test {
+contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
     using MintHelper for VeggiaERC721;
 
     VeggiaERC721Proxy public proxy;

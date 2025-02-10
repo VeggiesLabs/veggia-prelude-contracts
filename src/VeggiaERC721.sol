@@ -8,6 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712Upgradeable} from "@openzeppelin-upgradable/contracts/utils/cryptography/EIP712Upgradeable.sol";
 
 /**
  * @title VeggiaERC721
@@ -15,7 +16,19 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * @notice A contract for the Veggia NFTs.
  * @dev This contract is based on the ERC721 standard with additional features.
  */
-contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable {
+contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable, EIP712Upgradeable {
+    using ECDSA for bytes32;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   Structs                                  */
+    /* -------------------------------------------------------------------------- */
+
+    struct MintRequest {
+        address to;
+        uint256 index;
+        bool isPremium;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                   Storage                                  */
     /* -------------------------------------------------------------------------- */
@@ -97,6 +110,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @dev Using _ to avoid conflict with the symbol() function.
      */
     string private constant _symbol = "VGIA";
+    /**
+     * @notice The EIP712 domain separator.
+     */
+    bytes32 private constant _MINTREQUEST_TYPEHASH = keccak256("MintRequest(address to,uint256 index,bool isPremium)");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -137,7 +154,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event CapsSignerChanged(address newSigner);
     event LockedFirstMintToken(uint256 tokenId);
     event CapsOpened(address indexed account, uint256 tokenId, bool premium, bool isPack);
-    event MintedWithSignature(address indexed account, bytes message, bytes signature);
+    event MintedWithSignature(address indexed account, MintRequest req, bytes signature);
     event DefaultRoyaltyChanged(address receiver, uint96 feeNumerator);
 
     /* -------------------------------------------------------------------------- */
@@ -159,9 +176,13 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _capsSigner The address that can sign the mintWithSignature message.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
+    function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri)
+        external
+        initializer
+    {
         /// @dev Skips owner verification as the proxy is already ownable.
-        /// @dev Skips initialization check as the proxy handles the initialization check internally.
+
+        __EIP712_init("Veggia", "1");
 
         _transferOwnership(_owner);
 
@@ -265,35 +286,36 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Open a caps that mint 3 new tokens to the message sender using an authorized signature.
+     * @param req The mint request containing the mint information.
      * @param signature The signature that authorizes the mint.
-     * @param message The signed message containing the mint information.
-     *                  - address to: The address to mint the tokens to.
-     *                  - uint256 index: The index of the mint.
-     *                  - bool isPremium: Whether the mint is premium or not.
      */
-    function mint3WithSignature(bytes memory signature, bytes calldata message) external {
-        // Verify the signature
-        bytes32 messageHash = keccak256(message);
-        address recoveredSigner = ECDSA.recover(messageHash, signature);
-        if (recoveredSigner != capsSigner) revert INVALID_SIGNATURE();
+    function mint3WithSignature(MintRequest calldata req, bytes calldata signature) external {
+        // Ensure the sender is the intended recipient.
+        if (req.to != msg.sender) {
+            revert INVALID_SENDER(msg.sender, req.to);
+        }
 
-        // Decode the message
-        (address to, uint256 index, bool isPremium) = abi.decode(message, (address, uint256, bool));
+        // Check if this mint request has already been processed.
+        if (signatureMintsOf[req.to][req.index]) {
+            revert SIGNATURE_REUSED();
+        }
 
-        // Check if the signature has already been used
-        if (signatureMintsOf[to][index]) revert SIGNATURE_REUSED();
+        // Compute the EIP712 digest for the mint request.
+        bytes32 digest = hashMintRequest(req);
 
-        // Check if the sender is the expected one
-        /// @dev Only the "to" address can use the signature
-        if (to != msg.sender) revert INVALID_SENDER(msg.sender, to);
+        // Recover the signer from the digest and signature.
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != capsSigner) {
+            revert INVALID_SIGNATURE();
+        }
 
-        // Mark the signature as used
-        signatureMintsOf[to][index] = true;
+        // Mark the signature as used.
+        signatureMintsOf[req.to][req.index] = true;
 
-        // Mint the NFTs
-        _open3CapsForSender(isPremium);
+        // Proceed with minting.
+        _open3CapsForSender(req.isPremium);
 
-        emit MintedWithSignature(msg.sender, message, signature);
+        emit MintedWithSignature(msg.sender, req, signature);
     }
 
     /**
@@ -437,6 +459,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function symbol() public pure override returns (string memory) {
         return _symbol;
+    }
+
+    /**
+     * @notice Hash a mint request.
+     * @param req The mint request to hash.
+     */
+    function hashMintRequest(MintRequest calldata req) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(_MINTREQUEST_TYPEHASH, req.to, req.index, req.isPremium)));
     }
 
     /* -------------------------------------------------------------------------- */
