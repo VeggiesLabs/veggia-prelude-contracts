@@ -24,6 +24,13 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /*                                   Structs                                  */
     /* -------------------------------------------------------------------------- */
 
+    /**
+     * @notice A struct that represents a mint request.
+     * @dev Used to validate the mintWithSignature message.
+     * @param to The address that will receive the minted tokens.
+     * @param index The index of the mint request.
+     * @param isPremium Whether the mint request is for premium caps or not.
+     */
     struct MintRequest {
         address to;
         uint256 index;
