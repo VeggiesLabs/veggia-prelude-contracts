@@ -133,7 +133,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /// @dev Throws if the value sent is not the expected one.
     error WRONG_VALUE();
     /// @dev Throws if the caps quantity is less than 3
-    error UNKNOWN_PRICE_FORE(uint256 quantity, bool isPremium);
+    error UNKNOWN_CAPS_PRICE_FOR(uint256 quantity, bool isPremium);
     /// @dev Throws if the quantity is not the expected one.
     error WRONG_CAPS_QUANTITY();
     /// @dev Throws if the fee transfer failed.
@@ -340,7 +340,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
 
-        if (price == 0) revert UNKNOWN_PRICE_FORE(quantity, isPremium);
+        if (price == 0) revert UNKNOWN_CAPS_PRICE_FOR(quantity, isPremium);
         if (msg.value != price) revert WRONG_VALUE();
 
         unchecked {
