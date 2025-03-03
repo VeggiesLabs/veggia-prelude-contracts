@@ -12,3 +12,6 @@ open-coverage:
 
 deploy:
 	./script/deploy.sh
+
+upgradeTo:
+	./script/upgradeTo.sh
