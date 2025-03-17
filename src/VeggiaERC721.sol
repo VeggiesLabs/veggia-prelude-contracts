@@ -164,7 +164,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event FreeMintCooldownChanged(uint256 newCooldown);
     event FeeReceiverChanged(address newFeeReceiver);
     event CapsSignerChanged(address newSigner);
-    event LockedFirstMintToken(uint256 tokenId);
+    event LockedFirstMintToken(uint256 indexed tokenId);
     event CapsOpened(address indexed account, uint256 indexed tokenId, bool premium, bool isPack);
     event MintedWithSignature(address indexed account, MintRequest req, bytes signature);
     event DefaultRoyaltyChanged(address receiver, uint96 feeNumerator);

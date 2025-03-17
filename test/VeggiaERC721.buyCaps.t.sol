@@ -152,7 +152,7 @@ contract VeggiaERC721BuyCapsTest is Test {
         uint256 price = veggia.capsPriceByQuantity(capsAmount);
         assertEq(price, 0, "price != 0");
 
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.UNKNOWN_PRICE_FORE.selector, capsAmount, false));
+        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.UNKNOWN_CAPS_PRICE_FOR.selector, capsAmount, false));
         veggia.buyCaps{value: price}(false, capsAmount);
     }
 
@@ -178,7 +178,7 @@ contract VeggiaERC721BuyCapsTest is Test {
         uint256 price = veggia.premiumCapsPriceByQuantity(capsAmount);
         assertEq(price, 0, "price != 0");
 
-        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.UNKNOWN_PRICE_FORE.selector, capsAmount, true));
+        vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.UNKNOWN_CAPS_PRICE_FOR.selector, capsAmount, true));
         veggia.buyCaps{value: price}(true, capsAmount);
     }
 
