@@ -13,7 +13,7 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
  */
 contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
     /// @dev The initialization status of the contract.
-    bytes32 initializedSlot = keccak256("VeggiaERC721Proxy.initialized");
+    bytes32 private constant INITIALIZED_SLOT = keccak256("VeggiaERC721Proxy.initialized");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -65,7 +65,7 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      */
     function initialized() private view returns (bool) {
         bool _initialized;
-        bytes32 _initializedSlot = initializedSlot;
+        bytes32 _initializedSlot = INITIALIZED_SLOT;
         assembly {
             _initialized := sload(_initializedSlot)
         }
@@ -76,7 +76,7 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      * @notice Set the initialized status of the contract to true.
      */
     function setInitialized() private {
-        bytes32 _initializedSlot = initializedSlot;
+        bytes32 _initializedSlot = INITIALIZED_SLOT;
         assembly {
             sstore(_initializedSlot, 1)
         }
