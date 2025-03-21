@@ -32,14 +32,16 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      * @param _capsSigner The address that will sign the caps.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(address owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
+    function initialize(address owner, address _feeReceiver, address _capsSigner, address _pyth, string memory _baseUri)
+        external
+    {
         if (msg.sender != ProxyAdmin(_proxyAdmin()).owner()) {
             revert UNAUTHORIZED();
         }
         if (initialized()) revert ALREADY_INITIALIZED();
 
         (bool success,) = _implementation().delegatecall(
-            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _capsSigner, _baseUri)
+            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _capsSigner, _pyth, _baseUri)
         );
 
         if (!success) revert INITIALIZATION_FAILED();

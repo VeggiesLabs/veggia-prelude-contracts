@@ -3,6 +3,8 @@ pragma solidity ^0.8.24;
 
 import {ERC721TransferLock} from "./ERC721TransferLock.sol";
 
+import {IPyth} from "@pythnetwork/IPyth.sol";
+import {PythStructs} from "@pythnetwork/PythStructs.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
@@ -67,7 +69,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice The price of the premium pack.
      *         1 NFT mint + 12 caps + 3 premium caps.
      */
-    uint256 public premiumPackPrice;
+    uint256 public premiumPackUsdPrice;
+    /**
+     * @notice The Pyth contract address.
+     */
+    IPyth pyth;
 
     /* ------------------------------ Bytes storage ----------------------------- */
     /**
@@ -100,11 +106,11 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /**
      * @notice A mapping of the caps price by quantity.
      */
-    mapping(uint256 => uint256) public capsPriceByQuantity;
+    mapping(uint256 => uint256) public capsUsdPriceByQuantity;
     /**
      * @notice A mapping of the premium caps price by quantity.
      */
-    mapping(uint256 => uint256) public premiumCapsPriceByQuantity;
+    mapping(uint256 => uint256) public premiumCapsUsdPriceByQuantity;
 
     /* -------------------------------- Constants ------------------------------- */
 
@@ -130,6 +136,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error INSUFFICIENT_CAPS_BALANCE();
     /// @dev Throws if the value sent is not enough.
     error NOT_ENOUGH_VALUE();
+    /// @dev Throws if the value refund failed.
+    error VALUE_REFUND_FAILED();
     /// @dev Throws if the value sent is not the expected one.
     error WRONG_VALUE();
     /// @dev Throws if the caps quantity is less than 3
@@ -186,11 +194,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _feeReceiver The address that will receive the caps price.
      * @param _capsSigner The address that can sign the mintWithSignature message.
      * @param _baseUri The base URI of the token.
+     * @param _pyth The Pyth contract address.
      */
-    function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri)
-        external
-        initializer
-    {
+    function initialize(
+        address _owner,
+        address _feeReceiver,
+        address _capsSigner,
+        address _pyth,
+        string memory _baseUri
+    ) external initializer {
         /// @dev Skips owner verification as the proxy is already ownable.
 
         // Init EIP712
@@ -207,14 +219,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         freeMintLimit = 6;
         freeMintCooldown = 12 hours;
 
-        // Prices
-        capsPriceByQuantity[3] = 0.0003 ether;
-        capsPriceByQuantity[9] = 0.0006 ether;
-        capsPriceByQuantity[30] = 0.0018 ether;
-        premiumCapsPriceByQuantity[3] = 0.0009 ether;
-        premiumCapsPriceByQuantity[9] = 0.00225 ether;
-        premiumCapsPriceByQuantity[30] = 0.0054 ether;
-        premiumPackPrice = 0.0036 ether;
+        // Prices in USD with 18 decimals
+        premiumCapsUsdPriceByQuantity[3] = 1.99 ether;
+        premiumCapsUsdPriceByQuantity[9] = 4.99 ether;
+        premiumCapsUsdPriceByQuantity[30] = 9.99 ether;
+        premiumPackUsdPrice = 99.99 ether;
+
+        // Pyth
+        pyth = IPyth(_pyth);
 
         // Set the default royalty to 0
         _setDefaultRoyalty(_feeReceiver, 0);
@@ -337,13 +349,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param quantity The quantity of caps to buy.
      * @dev The quantity must be a multiple of 3 because each mint opens 3 caps.
      */
-    function buyCaps(bool isPremium, uint256 quantity) external payable {
+    function buyCaps(bool isPremium, uint256 quantity, bytes[] calldata priceUpdate) external payable {
         if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
 
-        uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
+        uint256 usdPrice = isPremium ? premiumCapsUsdPriceByQuantity[quantity] : capsUsdPriceByQuantity[quantity];
+        if (usdPrice == 0) revert UNKNOWN_CAPS_PRICE_FOR(quantity, isPremium);
 
-        if (price == 0) revert UNKNOWN_CAPS_PRICE_FOR(quantity, isPremium);
-        if (msg.value != price) revert WRONG_VALUE();
+        uint256 ethUsdPrice = getEthUsdPythPrice(priceUpdate);
+        uint256 ethWeiBuyPrice = usdPrice * 1e18 / ethUsdPrice;
+        if (msg.value < ethWeiBuyPrice) revert NOT_ENOUGH_VALUE();
 
         unchecked {
             if (isPremium) {
@@ -355,16 +369,24 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Transfer the caps price to the fee receiver at the end of the function for
         // consistency with the typical CEI pattern.
-        (bool success,) = payable(feeReceiver).call{value: msg.value}("");
-        if (!success) revert FEE_TRANSFER_FAILED();
+        (bool feeTransferSuccess,) = payable(feeReceiver).call{value: msg.value}("");
+        if (!feeTransferSuccess) revert FEE_TRANSFER_FAILED();
+
+        // Refund the excess value to the msg.sender
+        if (msg.value > ethWeiBuyPrice) {
+            (bool refundSuccess,) = payable(msg.sender).call{value: msg.value - ethWeiBuyPrice}("");
+            if (!refundSuccess) revert VALUE_REFUND_FAILED();
+        }
     }
 
     /**
      * @notice Buy a premium pack with the price of {premiumPackPrice}.
      * @dev The premium pack contains 1 NFT mint + 12 caps + 3 premium caps.
      */
-    function buyPremiumPack() external payable {
-        if (msg.value != premiumPackPrice) revert WRONG_VALUE();
+    function buyPremiumPack(bytes[] calldata priceUpdate) external payable {
+        uint256 ethUsdPrice = getEthUsdPythPrice(priceUpdate);
+        uint256 ethWeiBuyPrice = premiumPackUsdPrice * 1e18 / ethUsdPrice;
+        if (msg.value < ethWeiBuyPrice) revert NOT_ENOUGH_VALUE();
 
         // Give the caps to the buyer (12 caps because 12 is a multiple of 3)
         paidCapsBalanceOf[msg.sender] += 12;
@@ -384,6 +406,12 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         // Transfer the caps price to the fee receiver
         (bool success,) = payable(feeReceiver).call{value: msg.value}("");
         if (!success) revert FEE_TRANSFER_FAILED();
+
+        // Refund the excess value to the msg.sender
+        if (msg.value > ethWeiBuyPrice) {
+            (bool refundSuccess,) = payable(msg.sender).call{value: msg.value - ethWeiBuyPrice}("");
+            if (!refundSuccess) revert VALUE_REFUND_FAILED();
+        }
 
         // Emit the CapsOpened event corresponding to the minted token
         emit CapsOpened(msg.sender, _tokenId, false, true);
@@ -499,9 +527,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the caps price.
      * @param price The new caps price.
      */
-    function setCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
+    function setCapsUsdPrice(uint256 quantity, uint256 price) external onlyOwner {
         if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
-        capsPriceByQuantity[quantity] = price;
+        capsUsdPriceByQuantity[quantity] = price;
         emit CapsPriceChanged(quantity, price);
     }
 
@@ -509,9 +537,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the premium caps price.
      * @param price The new premium caps price.
      */
-    function setPremiumCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
+    function setPremiumCapsUsdPrice(uint256 quantity, uint256 price) external onlyOwner {
         if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
-        premiumCapsPriceByQuantity[quantity] = price;
+        premiumCapsUsdPriceByQuantity[quantity] = price;
         emit PremiumCapsPriceChanged(quantity, price);
     }
 
@@ -519,8 +547,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the premium pack price.
      * @param price The new premium pack price.
      */
-    function setPremiumPackPrice(uint256 price) external onlyOwner {
-        premiumPackPrice = price;
+    function setPremiumPackUsdPrice(uint256 price) external onlyOwner {
+        premiumPackUsdPrice = price;
         emit PremiumPackPriceChanged(price);
     }
 
@@ -634,5 +662,35 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
             emit LockedFirstMintToken(_tokenId);
         }
+    }
+
+    /**
+     * @notice Update Pyth price for price ID and return the price.
+     * @param priceUpdate The encoded data to update the contract with the latest price
+     */
+    function getEthUsdPythPrice(bytes[] calldata priceUpdate) private returns (uint256) {
+        // Submit a priceUpdate to the Pyth contract to update the on-chain price.
+        // Updating the price requires paying the fee returned by getUpdateFee.
+        // WARNING: These lines are required to ensure the getPriceNoOlderThan call below succeeds. If you remove them, transactions may fail with "0x19abf40e" error.
+        uint256 fee = pyth.getUpdateFee(priceUpdate);
+        pyth.updatePriceFeeds{value: fee}(priceUpdate);
+
+        // Read the current price from a price feed if it is less than 60 seconds old.
+        // Each price feed (e.g., ETH/USD) is identified by a price feed ID.
+        // The complete list of feed IDs is available at https://pyth.network/developers/price-feed-ids
+        bytes32 priceFeedId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace; // ETH/USD
+        PythStructs.Price memory price = pyth.getPriceNoOlderThan(priceFeedId, 60);
+
+        // Convert the price to a uint256 with 18 decimals.
+        int256 _price;
+        if (price.expo < 0) {
+            // For negative exponent, divide by 10**(-expo)
+            _price = int256(price.price) * 1e18 / int256(10 ** uint256(-int256(price.expo)));
+        } else {
+            // For non-negative exponent, multiply by 10**expo
+            _price = int256(price.price) * 1e18 * int256(10 ** uint256(int256(price.expo)));
+        }
+
+        return uint256(_price < 0 ? int256(0) : _price);
     }
 }
