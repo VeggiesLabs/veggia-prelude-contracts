@@ -10,6 +10,7 @@ contract DeployAll is Script {
     address owner;
     address feeReceiver;
     address capsSigner;
+    address pyth;
     string baseURI;
 
     function run() external {
@@ -19,7 +20,7 @@ contract DeployAll is Script {
         VeggiaERC721 veggiaImplementation = new VeggiaERC721();
         VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
 
-        veggiaProxy.initialize(owner, feeReceiver, capsSigner, baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, capsSigner, pyth, baseURI);
 
         vm.stopBroadcast();
     }
@@ -28,6 +29,7 @@ contract DeployAll is Script {
         owner = vm.envAddress("OWNER");
         feeReceiver = vm.envAddress("FEE_RECEIVER");
         capsSigner = vm.envAddress("SERVER_SIGNER");
+        pyth = vm.envAddress("PYTH_CONTRACT");
         baseURI = vm.envString("VEGGIA_BASE_URI");
     }
 }

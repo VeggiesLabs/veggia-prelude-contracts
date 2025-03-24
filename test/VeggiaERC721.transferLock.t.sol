@@ -7,14 +7,27 @@ import {ERC721TransferLock} from "../src/ERC721TransferLock.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import {DeployHelper} from "./utils/DeployHelper.sol";
+import {MockPyth} from "@pythnetwork/MockPyth.sol";
+import {PythHelper} from "./utils/PythHelper.sol";
 
 contract VeggiaERC721TransferLockTest is Test, ERC721Holder {
+    using PythHelper for MockPyth;
+
     VeggiaERC721 public veggia;
+    MockPyth public pyth;
+    bytes[] ethPriceUpdateData;
 
     function setUp() public {
         veggia = new VeggiaERC721();
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
+        (veggia, pyth) =
+            DeployHelper.deployVeggiaWithPyth(address(this), address(1234), serverSigner, "http://localhost:4000/");
+
+        veggia.setCapsUsdPrice(3, 0.09 ether);
+        veggia.setCapsUsdPrice(9, 0.19 ether);
+        veggia.setCapsUsdPrice(30, 0.49 ether);
+
+        ethPriceUpdateData = pyth.createEthUpdate(4000);
     }
 
     /**
@@ -90,7 +103,7 @@ contract VeggiaERC721TransferLockTest is Test, ERC721Holder {
      */
     function test_transferFirst3PaidTokens() public {
         // Buy an egg and open it to mint 3 tokens
-        veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+        veggia.buyCaps{value: veggia.capsUsdPriceByQuantity(3) / 4000 + 1}(false, 3, ethPriceUpdateData);
         veggia.mint3(false);
 
         assertEq(veggia.balanceOf(address(this)), 3);
@@ -136,7 +149,7 @@ contract VeggiaERC721TransferLockTest is Test, ERC721Holder {
 
         for (uint256 i = 0; i < mintAmount; i += 3) {
             // Buy an egg and open it to mint 3 tokens
-            veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+            veggia.buyCaps{value: veggia.capsUsdPriceByQuantity(3) / 4000 + 1}(false, 3, ethPriceUpdateData);
             veggia.mint3(false);
 
             veggia.transferFrom(address(this), address(0x1), i);

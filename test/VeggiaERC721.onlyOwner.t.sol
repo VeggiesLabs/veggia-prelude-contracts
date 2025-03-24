@@ -43,14 +43,14 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         vm.assume(amount != 9);
         vm.assume(amount != 30);
 
-        assertEq(veggia.capsPriceByQuantity(amount), 0);
+        assertEq(veggia.capsUsdPriceByQuantity(amount), 0);
 
         vm.expectEmit(true, false, false, true);
         emit VeggiaERC721.CapsPriceChanged(amount, 1 ether);
         vm.prank(owner);
-        veggia.setCapsPrice(amount, 1 ether);
+        veggia.setCapsUsdPrice(amount, 1 ether);
 
-        assertEq(veggia.capsPriceByQuantity(amount), 1 ether);
+        assertEq(veggia.capsUsdPriceByQuantity(amount), 1 ether);
     }
 
     function test_setPremiumCapsPrice(uint256 amount) public {
@@ -61,25 +61,25 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         vm.assume(amount != 9);
         vm.assume(amount != 30);
 
-        assertEq(veggia.premiumCapsPriceByQuantity(amount), 0);
+        assertEq(veggia.premiumCapsUsdPriceByQuantity(amount), 0);
 
         vm.expectEmit(true, false, false, true);
         emit VeggiaERC721.PremiumCapsPriceChanged(amount, 1 ether);
         vm.prank(owner);
-        veggia.setPremiumCapsPrice(amount, 1 ether);
+        veggia.setPremiumCapsUsdPrice(amount, 1 ether);
 
-        assertEq(veggia.premiumCapsPriceByQuantity(amount), 1 ether);
+        assertEq(veggia.premiumCapsUsdPriceByQuantity(amount), 1 ether);
     }
 
-    function test_setPremiumPackPrice() public {
-        assertEq(veggia.premiumPackPrice(), 0.0036 ether);
+    function test_setPremiumPackUsdPrice() public {
+        assertEq(veggia.premiumPackUsdPrice(), 99.99 ether);
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.PremiumPackPriceChanged(1 ether);
         vm.prank(owner);
-        veggia.setPremiumPackPrice(1 ether);
+        veggia.setPremiumPackUsdPrice(1 ether);
 
-        assertEq(veggia.premiumPackPrice(), 1 ether);
+        assertEq(veggia.premiumPackUsdPrice(), 1 ether);
     }
 
     function test_setFreeMintLimit(uint256 amount) public {
