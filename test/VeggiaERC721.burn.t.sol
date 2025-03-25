@@ -17,6 +17,7 @@ contract VeggiaERC721BurnTest is Test, ERC721Holder {
     function setUp() public {
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
         veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
+        DeployHelper.updateSuperPassFor(veggia, SERVER_SIGNER, address(this), true);
     }
 
     function test_burn() public {

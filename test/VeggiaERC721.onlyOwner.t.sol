@@ -129,16 +129,16 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         assertEq(veggia.feeReceiver(), address(0x5678));
     }
 
-    function test_setCapsSigner() public {
+    function test_setAuthoritySigner() public {
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        assertEq(veggia.capsSigner(), serverSigner);
+        assertEq(veggia.authoritySigner(), serverSigner);
 
         vm.expectEmit(false, false, false, true);
-        emit VeggiaERC721.CapsSignerChanged(address(0x77778888));
+        emit VeggiaERC721.AuthoritySignerChanged(address(0x77778888));
         vm.prank(owner);
-        veggia.setCapsSigner(address(0x77778888));
+        veggia.setAuthoritySigner(address(0x77778888));
 
-        assertEq(veggia.capsSigner(), address(0x77778888));
+        assertEq(veggia.authoritySigner(), address(0x77778888));
     }
 
     function test_setDefaultRoyalty() public {

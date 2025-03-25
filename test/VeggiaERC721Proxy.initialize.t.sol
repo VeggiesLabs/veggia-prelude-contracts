@@ -35,7 +35,7 @@ contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
         vm.prank(initialOwner);
         veggia.initialize(owner, feeReceiver, serverSigner, address(123456789), baseUri);
 
-        assertEq(veggia.capsSigner(), serverSigner);
+        assertEq(veggia.authoritySigner(), serverSigner);
         assertEq(veggia.owner(), owner);
         assertEq(veggia.feeReceiver(), feeReceiver);
 

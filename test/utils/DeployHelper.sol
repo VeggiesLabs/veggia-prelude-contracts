@@ -5,12 +5,13 @@ import {VeggiaERC721} from "src/VeggiaERC721.sol";
 import {VeggiaERC721Proxy} from "src/proxy/VeggiaERC721Proxy.sol";
 import {Vm} from "forge-std/Vm.sol";
 import {MockPyth} from "@pythnetwork/MockPyth.sol";
+import {SignatureHelper} from "./SignatureHelper.sol";
 
 library DeployHelper {
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     Vm internal constant vm = Vm(VM_ADDRESS);
 
-    function deployVeggia(address owner, address feeReceiver, address capsSigner, string memory baseURI)
+    function deployVeggia(address owner, address feeReceiver, address authoritySigner, string memory baseURI)
         internal
         returns (VeggiaERC721)
     {
@@ -18,12 +19,12 @@ library DeployHelper {
         VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
 
         vm.prank(owner);
-        veggiaProxy.initialize(owner, feeReceiver, capsSigner, address(0), baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(0), baseURI);
 
         return VeggiaERC721(address(veggiaProxy));
     }
 
-    function deployVeggiaWithPyth(address owner, address feeReceiver, address capsSigner, string memory baseURI)
+    function deployVeggiaWithPyth(address owner, address feeReceiver, address authoritySigner, string memory baseURI)
         internal
         returns (VeggiaERC721, MockPyth)
     {
@@ -33,8 +34,14 @@ library DeployHelper {
         MockPyth pyth = new MockPyth(60, 1);
 
         vm.prank(owner);
-        veggiaProxy.initialize(owner, feeReceiver, capsSigner, address(pyth), baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(pyth), baseURI);
 
         return (VeggiaERC721(address(veggiaProxy)), pyth);
+    }
+
+    function updateSuperPassFor(VeggiaERC721 veggia, bytes32 authoritySigner, address owner, bool unlocked) internal {
+        bytes memory signature = SignatureHelper.signUpdateForAs(veggia, authoritySigner, owner, unlocked);
+        VeggiaERC721.UpdateSuperPassRequest memory request = VeggiaERC721.UpdateSuperPassRequest(owner, unlocked);
+        veggia.updateSuperPassWithSignature(request, signature);
     }
 }
