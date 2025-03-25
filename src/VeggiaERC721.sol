@@ -178,7 +178,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event FreeMintLimitChanged(uint256 newLimit);
     event FreeMintCooldownChanged(uint256 newCooldown);
     event FeeReceiverChanged(address newFeeReceiver);
-    event CapsSignerChanged(address newSigner);
+    event AuthoritySignerChanged(address newSigner);
     event LockedFirstMintToken(uint256 indexed tokenId);
     event CapsOpened(address indexed account, uint256 indexed tokenId, bool premium, bool isPack);
     event MintedWithSignature(address indexed account, MintRequest req, bytes signature);
@@ -609,10 +609,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the signer.
      * @param _authoritySigner The new signer.
      */
-    function setCapsSigner(address _authoritySigner) external onlyOwner {
+    function setAuthoritySigner(address _authoritySigner) external onlyOwner {
         if (_authoritySigner == address(0)) revert ZERO_ADDRESS();
         authoritySigner = _authoritySigner;
-        emit CapsSignerChanged(_authoritySigner);
+        emit AuthoritySignerChanged(_authoritySigner);
     }
 
     /**
