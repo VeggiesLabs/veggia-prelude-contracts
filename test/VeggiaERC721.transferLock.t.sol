@@ -23,7 +23,7 @@ contract VeggiaERC721TransferLockTest is Test, ERC721Holder {
         (veggia, pyth) =
             DeployHelper.deployVeggiaWithPyth(address(this), address(1234), serverSigner, "http://localhost:4000/");
 
-        DeployHelper.unlockSuperPassFor(veggia, SERVER_SIGNER, address(this));
+        DeployHelper.updateSuperPassFor(veggia, SERVER_SIGNER, address(this), true);
 
         veggia.setCapsUsdPrice(3, 0.09 ether);
         veggia.setCapsUsdPrice(9, 0.19 ether);

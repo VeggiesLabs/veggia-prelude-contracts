@@ -48,11 +48,15 @@ library SignatureHelper {
         return signature;
     }
 
-    function signUnlockFor(VeggiaERC721 veggia, address owner) public view returns (bytes memory signature) {
-        return signUnlockForAs(veggia, SERVER_SIGNER, owner);
+    function signUpdateFor(VeggiaERC721 veggia, address owner, bool unlocked)
+        public
+        view
+        returns (bytes memory signature)
+    {
+        return signUpdateForAs(veggia, SERVER_SIGNER, owner, unlocked);
     }
 
-    function signUnlockForAs(VeggiaERC721 veggia, bytes32 signer, address owner)
+    function signUpdateForAs(VeggiaERC721 veggia, bytes32 signer, address owner, bool unlocked)
         public
         view
         returns (bytes memory signature)
@@ -68,7 +72,7 @@ library SignatureHelper {
         );
 
         // Compute the struct hash for UnlockFor
-        bytes32 structHash = keccak256(abi.encode(UPDATESUPERPASSREQUEST_TYPEHASH, owner, true));
+        bytes32 structHash = keccak256(abi.encode(UPDATESUPERPASSREQUEST_TYPEHASH, owner, unlocked));
 
         // Compute the EIP712 digest: "\x19\x01" ‖ DOMAIN_SEPARATOR ‖ structHash
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));

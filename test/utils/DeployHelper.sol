@@ -39,9 +39,9 @@ library DeployHelper {
         return (VeggiaERC721(address(veggiaProxy)), pyth);
     }
 
-    function unlockSuperPassFor(VeggiaERC721 veggia, bytes32 authoritySigner, address owner) internal {
-        bytes memory signature = SignatureHelper.signUnlockForAs(veggia, authoritySigner, owner);
-        VeggiaERC721.UpdateSuperPassRequest memory request = VeggiaERC721.UpdateSuperPassRequest(owner, true);
+    function updateSuperPassFor(VeggiaERC721 veggia, bytes32 authoritySigner, address owner, bool unlocked) internal {
+        bytes memory signature = SignatureHelper.signUpdateForAs(veggia, authoritySigner, owner, unlocked);
+        VeggiaERC721.UpdateSuperPassRequest memory request = VeggiaERC721.UpdateSuperPassRequest(owner, unlocked);
         veggia.updateSuperPassWithSignature(request, signature);
     }
 }
