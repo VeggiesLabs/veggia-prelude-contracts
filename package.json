@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.6.4",
+  "packageManager": "pnpm@10.6.5",
   "dependencies": {
     "@pythnetwork/pyth-sdk-solidity": "^4.0.0"
   }
