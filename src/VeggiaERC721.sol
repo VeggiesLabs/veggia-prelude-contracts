@@ -65,7 +65,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /**
      * @notice The address that sign the mintWithSignature message.
      */
-    address public capsSigner;
+    address public authoritySigner;
     /**
      * @notice The price of the premium pack.
      *         1 NFT mint + 12 caps + 3 premium caps.
@@ -112,6 +112,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice A mapping of the premium caps price by quantity.
      */
     mapping(uint256 => uint256) public premiumCapsUsdPriceByQuantity;
+    /**
+     * @notice A mapping of the super pass status of an account.
+     */
+    mapping(address => bool) public hasSuperPass;
 
     /* -------------------------------- Constants ------------------------------- */
 
@@ -159,6 +163,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error ZERO_ADDRESS();
     /// @dev Throws if the cooldown is set to 0.
     error ZERO_COOLDOWN();
+    /// @dev Throws when trying to transfer a locked token.
+    error CANT_TRANSFER_WITHOUT_SUPER_PASS(address auth, uint256 token);
+    /// @dev Throws when trying to approve a locked token.
+    error CANT_APPROVE_WITHOUT_SUPER_PASS();
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -191,14 +199,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Initialize the contract.
      * @param _owner The owner of the contract.
      * @param _feeReceiver The address that will receive the caps price.
-     * @param _capsSigner The address that can sign the mintWithSignature message.
+     * @param _authoritySigner The address that can sign the mintWithSignature message.
      * @param _baseUri The base URI of the token.
      * @param _pyth The Pyth contract address.
      */
     function initialize(
         address _owner,
         address _feeReceiver,
-        address _capsSigner,
+        address _authoritySigner,
         address _pyth,
         string memory _baseUri
     ) external initializer {
@@ -211,7 +219,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         _transferOwnership(_owner);
 
         baseURI = _baseUri;
-        capsSigner = _capsSigner;
+        authoritySigner = _authoritySigner;
         feeReceiver = _feeReceiver;
 
         // Must be a multiple of 3
@@ -329,7 +337,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Recover the signer from the digest and signature.
         address recoveredSigner = ECDSA.recover(digest, signature);
-        if (recoveredSigner != capsSigner) {
+        if (recoveredSigner != authoritySigner) {
             revert INVALID_SIGNATURE();
         }
 
@@ -414,6 +422,22 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Emit the CapsOpened event corresponding to the minted token
         emit CapsOpened(msg.sender, _tokenId, false, true);
+    }
+
+    /**
+     * @notice Lock/unlock the super pass for an account.
+     * @param account The account to unlock the super pass.
+     * @param locked Whether to lock or unlock the super pass.
+     * @param signature The signature that authorizes the unlock.
+     */
+    function updateSuperPassWithSignature(address account, bool locked, bytes calldata signature) external {
+        // Recover the signer from the digest and signature.
+        address recoveredSigner = ECDSA.recover(keccak256(abi.encodePacked(account, locked)), signature);
+        if (recoveredSigner != authoritySigner) {
+            revert INVALID_SIGNATURE();
+        }
+
+        hasSuperPass[account] = locked;
     }
 
     /**
@@ -583,12 +607,12 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Set the signer.
-     * @param _capsSigner The new signer.
+     * @param _authoritySigner The new signer.
      */
-    function setCapsSigner(address _capsSigner) external onlyOwner {
-        if (_capsSigner == address(0)) revert ZERO_ADDRESS();
-        capsSigner = _capsSigner;
-        emit CapsSignerChanged(_capsSigner);
+    function setCapsSigner(address _authoritySigner) external onlyOwner {
+        if (_authoritySigner == address(0)) revert ZERO_ADDRESS();
+        authoritySigner = _authoritySigner;
+        emit CapsSignerChanged(_authoritySigner);
     }
 
     /**
@@ -605,6 +629,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /*                             Internal functions                             */
     /* -------------------------------------------------------------------------- */
 
+    /* -------------------------------- Overrides ------------------------------- */
+
     /**
      * @dev Override the _update function to resolve inheritance conflict and
      *      ensures locked tokens cannot be transferred.
@@ -617,8 +643,47 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         override(ERC721, ERC721TransferLock)
         returns (address)
     {
+        address from = _ownerOf(token);
+
+        if(!hasSuperPass[from]) {
+            revert CANT_TRANSFER_WITHOUT_SUPER_PASS(from, token);
+        }
+
         // Use the implementation from ERC721TransferLock
         return ERC721TransferLock._update(to, token, auth);
+    }
+
+    /**
+     * @dev Override the _approve function to prevent approving locked tokens.
+     * @param to The address to approve.
+     * @param token The token ID to approve.
+     * @param auth The authorizer of the approval.
+     * @param emitEvent Whether to emit the Approval event.
+     */
+    function _approve(address to, uint256 token, address auth, bool emitEvent) internal override {
+        address from = _ownerOf(token);
+
+        if(!hasSuperPass[from]) {
+            revert CANT_APPROVE_WITHOUT_SUPER_PASS();
+        }
+
+        // Use the implementation from ERC721
+        ERC721._approve(to, token, auth, emitEvent);
+    }
+
+    /**
+     * @dev Override the _setApprovalForAll function to prevent approving locked tokens.
+     * @param owner The owner of the tokens.
+     * @param operator The operator to approve.
+     * @param approved Whether the operator is approved or not.
+     */
+    function _setApprovalForAll(address owner, address operator, bool approved) internal override {
+        if(!hasSuperPass[owner]) {
+            revert CANT_APPROVE_WITHOUT_SUPER_PASS();
+        }
+
+        // Use the implementation from ERC721
+        ERC721._setApprovalForAll(owner, operator, approved);
     }
 
     /* -------------------------------------------------------------------------- */
