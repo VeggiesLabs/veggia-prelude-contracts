@@ -645,7 +645,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     {
         address from = _ownerOf(token);
 
-        if(!hasSuperPass[from]) {
+        if (!hasSuperPass[from]) {
             revert CANT_TRANSFER_WITHOUT_SUPER_PASS(from, token);
         }
 
@@ -663,7 +663,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     function _approve(address to, uint256 token, address auth, bool emitEvent) internal override {
         address from = _ownerOf(token);
 
-        if(!hasSuperPass[from]) {
+        if (!hasSuperPass[from]) {
             revert CANT_APPROVE_WITHOUT_SUPER_PASS();
         }
 
@@ -678,7 +678,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param approved Whether the operator is approved or not.
      */
     function _setApprovalForAll(address owner, address operator, bool approved) internal override {
-        if(!hasSuperPass[owner]) {
+        if (!hasSuperPass[owner]) {
             revert CANT_APPROVE_WITHOUT_SUPER_PASS();
         }
 
