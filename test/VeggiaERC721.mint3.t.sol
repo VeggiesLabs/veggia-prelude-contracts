@@ -83,5 +83,5 @@ contract VeggiaERC721Mint3Test is Test, ERC721Holder {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
     }
 
-    receive () external payable {}
+    receive() external payable {}
 }
