@@ -116,7 +116,7 @@ contract VeggiaERC721Open3CapsForSenderTest is Test, ERC721Holder {
 
         veggia = new VeggiaERC721();
         veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
-        assertEq(veggia.capsSigner(), serverSigner);
+        assertEq(veggia.authoritySigner(), serverSigner);
 
         VeggiaERC721.MintRequest memory req = VeggiaERC721.MintRequest(user, index, isPremium);
         bytes memory signature = SignatureHelper.signMint3As(veggia, bytes32(signer), user, isPremium, index);
