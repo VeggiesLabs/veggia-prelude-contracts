@@ -13,7 +13,7 @@ import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.s
  */
 contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
     /// @dev The initialization status of the contract.
-    bool initialized;
+    bytes32 private constant INITIALIZED_SLOT = keccak256("VeggiaERC721Proxy.initialized");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -32,16 +32,20 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      * @param _capsSigner The address that will sign the caps.
      * @param _baseUri The base URI of the token.
      */
-    function initialize(address owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
-        if (msg.sender != ProxyAdmin(_proxyAdmin()).owner()) revert UNAUTHORIZED();
-        if (initialized) revert ALREADY_INITIALIZED();
+    function initialize(address owner, address _feeReceiver, address _capsSigner, address _pyth, string memory _baseUri)
+        external
+    {
+        if (msg.sender != ProxyAdmin(_proxyAdmin()).owner()) {
+            revert UNAUTHORIZED();
+        }
+        if (initialized()) revert ALREADY_INITIALIZED();
 
         (bool success,) = _implementation().delegatecall(
-            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _capsSigner, _baseUri)
+            abi.encodeWithSelector(VeggiaERC721.initialize.selector, owner, _feeReceiver, _capsSigner, _pyth, _baseUri)
         );
 
         if (!success) revert INITIALIZATION_FAILED();
-        initialized = true;
+        setInitialized();
     }
 
     /**
@@ -56,6 +60,28 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
      */
     function admin() public view returns (address) {
         return _proxyAdmin();
+    }
+
+    /**
+     * @notice Get the initialized status of the contract.
+     */
+    function initialized() private view returns (bool) {
+        bool _initialized;
+        bytes32 _initializedSlot = INITIALIZED_SLOT;
+        assembly {
+            _initialized := sload(_initializedSlot)
+        }
+        return _initialized;
+    }
+
+    /**
+     * @notice Set the initialized status of the contract to true.
+     */
+    function setInitialized() private {
+        bytes32 _initializedSlot = INITIALIZED_SLOT;
+        assembly {
+            sstore(_initializedSlot, 1)
+        }
     }
 
     /**

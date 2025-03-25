@@ -4,14 +4,28 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
+import {DeployHelper} from "./utils/DeployHelper.sol";
+import {MockPyth} from "@pythnetwork/MockPyth.sol";
+import {PythHelper} from "./utils/PythHelper.sol";
 
 contract VeggiaERC721CapsBalanceOfTest is Test {
+    using PythHelper for MockPyth;
+
     VeggiaERC721 public veggia;
+    MockPyth public pyth;
+    bytes[] ethPriceUpdateData;
 
     function setUp() public {
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
+        veggia = new VeggiaERC721();
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia.initialize(address(this), address(0x1234), serverSigner, "http://localhost:4000/");
+        (veggia, pyth) =
+            DeployHelper.deployVeggiaWithPyth(address(this), address(0x1234), serverSigner, "http://localhost:4000/");
+
+        veggia.setCapsUsdPrice(3, 0.09 ether);
+        veggia.setCapsUsdPrice(9, 0.19 ether);
+        veggia.setCapsUsdPrice(30, 0.49 ether);
+
+        ethPriceUpdateData = pyth.createEthUpdate(4000);
     }
 
     function test_capsBalanceOfShouldBeZero() public view {
@@ -53,7 +67,7 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
 
         // Buy 3 caps
-        veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+        veggia.buyCaps{value: veggia.capsUsdPriceByQuantity(3) / 4000 + 1}(false, 3, ethPriceUpdateData);
 
         // Free caps balance still 0
         assertEq(getFreeMintBalanceOf(address(this)), 0);
@@ -75,7 +89,7 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
 
         // Buy 3 caps
-        veggia.buyCaps{value: veggia.premiumCapsPriceByQuantity(3)}(true, 3);
+        veggia.buyCaps{value: veggia.premiumCapsUsdPriceByQuantity(3) / 4000 + 1}(true, 3, ethPriceUpdateData);
 
         // Free caps balance still 0
         assertEq(getFreeMintBalanceOf(address(this)), 0);
@@ -97,9 +111,10 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
 
         // Buy 3 regular caps
-        veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+        veggia.buyCaps{value: veggia.capsUsdPriceByQuantity(3) / 4000 + 1}(false, 3, ethPriceUpdateData);
+        ethPriceUpdateData = pyth.createEthUpdate(4000);
         // Buy 3 premium caps
-        veggia.buyCaps{value: veggia.premiumCapsPriceByQuantity(3)}(true, 3);
+        veggia.buyCaps{value: veggia.premiumCapsUsdPriceByQuantity(3) / 4000 + 1}(true, 3, ethPriceUpdateData);
 
         // Free caps balance still 0
         assertEq(getFreeMintBalanceOf(address(this)), 0);
@@ -127,7 +142,8 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
 
         // Buy 3 regular caps
-        veggia.buyCaps{value: veggia.capsPriceByQuantity(3)}(false, 3);
+        ethPriceUpdateData = pyth.createEthUpdate(4000);
+        veggia.buyCaps{value: veggia.capsUsdPriceByQuantity(3) / 4000 + 1}(false, 3, ethPriceUpdateData);
 
         // Free caps balance still 3
         assertEq(getFreeMintBalanceOf(address(this)), 3);
@@ -155,7 +171,8 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
         assertEq(veggia.paidPremiumCapsBalanceOf(address(this)), 0);
 
         // Buy 3 regular caps
-        veggia.buyCaps{value: veggia.premiumCapsPriceByQuantity(3)}(true, 3);
+        ethPriceUpdateData = pyth.createEthUpdate(4000);
+        veggia.buyCaps{value: veggia.premiumCapsUsdPriceByQuantity(3) / 4000 + 1}(true, 3, ethPriceUpdateData);
 
         // Free caps balance still 3
         assertEq(getFreeMintBalanceOf(address(this)), 3);
@@ -177,4 +194,6 @@ contract VeggiaERC721CapsBalanceOfTest is Test {
             ((block.timestamp - veggia.lastMintTimestamp(account)) / veggia.freeMintCooldown()) * 3;
         return freeCapsBalance > veggia.freeMintLimit() ? veggia.freeMintLimit() : freeCapsBalance;
     }
+
+    receive() external payable {}
 }

@@ -3,11 +3,16 @@ pragma solidity ^0.8.24;
 
 import {ERC721TransferLock} from "./ERC721TransferLock.sol";
 
+import {IPyth} from "@pythnetwork/IPyth.sol";
+import {PythStructs} from "@pythnetwork/PythStructs.sol";
 import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import {Ownable2Step} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Burnable.sol";
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import {EIP712Upgradeable} from "@openzeppelin-upgradable/contracts/utils/cryptography/EIP712Upgradeable.sol";
+import {console2} from "forge-std/console2.sol";
 
 /**
  * @title VeggiaERC721
@@ -15,7 +20,26 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
  * @notice A contract for the Veggia NFTs.
  * @dev This contract is based on the ERC721 standard with additional features.
  */
-contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable {
+contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royalty, Ownable2Step, EIP712Upgradeable {
+    using ECDSA for bytes32;
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   Structs                                  */
+    /* -------------------------------------------------------------------------- */
+
+    /**
+     * @notice A struct that represents a mint request.
+     * @dev Used to validate the mintWithSignature message.
+     * @param to The address that will receive the minted tokens.
+     * @param index The index of the mint request.
+     * @param isPremium Whether the mint request is for premium caps or not.
+     */
+    struct MintRequest {
+        address to;
+        uint256 index;
+        bool isPremium;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                   Storage                                  */
     /* -------------------------------------------------------------------------- */
@@ -44,9 +68,13 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     address public capsSigner;
     /**
      * @notice The price of the premium pack.
-     *         1 NFT mint + 10 caps + 3 premium caps.
+     *         1 NFT mint + 12 caps + 3 premium caps.
      */
-    uint256 public premiumPackPrice;
+    uint256 public premiumPackUsdPrice;
+    /**
+     * @notice The Pyth contract address.
+     */
+    IPyth public pyth;
 
     /* ------------------------------ Bytes storage ----------------------------- */
     /**
@@ -79,11 +107,28 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     /**
      * @notice A mapping of the caps price by quantity.
      */
-    mapping(uint256 => uint256) public capsPriceByQuantity;
+    mapping(uint256 => uint256) public capsUsdPriceByQuantity;
     /**
      * @notice A mapping of the premium caps price by quantity.
      */
-    mapping(uint256 => uint256) public premiumCapsPriceByQuantity;
+    mapping(uint256 => uint256) public premiumCapsUsdPriceByQuantity;
+
+    /* -------------------------------- Constants ------------------------------- */
+
+    /**
+     * @notice The name of the token.
+     * @dev Using _ to avoid conflict with the name() function.
+     */
+    string private constant _name = "Veggia";
+    /**
+     * @notice The symbol of the token.
+     * @dev Using _ to avoid conflict with the symbol() function.
+     */
+    string private constant _symbol = "VGIA";
+    /**
+     * @notice The EIP712 domain separator.
+     */
+    bytes32 private constant _MINTREQUEST_TYPEHASH = keccak256("MintRequest(address to,uint256 index,bool isPremium)");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -92,10 +137,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error INSUFFICIENT_CAPS_BALANCE();
     /// @dev Throws if the value sent is not enough.
     error NOT_ENOUGH_VALUE();
-    /// @dev Throws if the value sent is not the expected one.
-    error WRONG_VALUE();
+    /// @dev Throws if the value refund failed.
+    error VALUE_REFUND_FAILED();
     /// @dev Throws if the caps quantity is less than 3
-    error UNKNOWN_PRICE_FORE(uint256 quantity, bool isPremium);
+    error UNKNOWN_CAPS_PRICE_FOR(uint256 quantity, bool isPremium);
     /// @dev Throws if the quantity is not the expected one.
     error WRONG_CAPS_QUANTITY();
     /// @dev Throws if the fee transfer failed.
@@ -110,6 +155,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     error INVALID_SENDER(address sender, address expected);
     /// @dev Throws if the free mint limit is not a multiple of 3.
     error FREE_MINT_LIMIT_MUST_BE_MULTIPLE_OF_3();
+    /// @dev Throws if the address is the zero address.
+    error ZERO_ADDRESS();
+    /// @dev Throws if the cooldown is set to 0.
+    error ZERO_COOLDOWN();
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -122,17 +171,16 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event FreeMintCooldownChanged(uint256 newCooldown);
     event FeeReceiverChanged(address newFeeReceiver);
     event CapsSignerChanged(address newSigner);
-    event LockedFirstMintToken(uint256 tokenId);
-    event CapsOpened(address indexed account, uint256 tokenId, bool premium, bool isPack);
-    event MintedWithSignature(address indexed account, bytes message, bytes signature);
+    event LockedFirstMintToken(uint256 indexed tokenId);
+    event CapsOpened(address indexed account, uint256 indexed tokenId, bool premium, bool isPack);
+    event MintedWithSignature(address indexed account, MintRequest req, bytes signature);
     event DefaultRoyaltyChanged(address receiver, uint96 feeNumerator);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
     /* -------------------------------------------------------------------------- */
-    constructor(address _feeReceiver, string memory _baseUri) ERC721("Veggia", "VEGGIA") Ownable(msg.sender) {
-        baseURI = _baseUri;
-        feeReceiver = _feeReceiver;
+    constructor() ERC721("Veggia", "VGIA") Ownable(msg.sender) {
+        _disableInitializers();
     }
 
     /* -------------------------------------------------------------------------- */
@@ -145,11 +193,21 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _feeReceiver The address that will receive the caps price.
      * @param _capsSigner The address that can sign the mintWithSignature message.
      * @param _baseUri The base URI of the token.
+     * @param _pyth The Pyth contract address.
      */
-    function initialize(address _owner, address _feeReceiver, address _capsSigner, string memory _baseUri) external {
+    function initialize(
+        address _owner,
+        address _feeReceiver,
+        address _capsSigner,
+        address _pyth,
+        string memory _baseUri
+    ) external initializer {
         /// @dev Skips owner verification as the proxy is already ownable.
-        /// @dev Skips initialization check as the proxy handles the initialization check internally.
 
+        // Init EIP712
+        __EIP712_init("Veggia", "1");
+
+        // Transfer the ownership to the owner
         _transferOwnership(_owner);
 
         baseURI = _baseUri;
@@ -160,14 +218,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         freeMintLimit = 6;
         freeMintCooldown = 12 hours;
 
-        // Prices
-        capsPriceByQuantity[3] = 0.0003 ether;
-        capsPriceByQuantity[9] = 0.0006 ether;
-        capsPriceByQuantity[30] = 0.0018 ether;
-        premiumCapsPriceByQuantity[3] = 0.0009 ether;
-        premiumCapsPriceByQuantity[9] = 0.00225 ether;
-        premiumCapsPriceByQuantity[30] = 0.0054 ether;
-        premiumPackPrice = 0.0036 ether;
+        // Prices in USD with 18 decimals
+        premiumCapsUsdPriceByQuantity[3] = 1.99 ether;
+        premiumCapsUsdPriceByQuantity[9] = 4.99 ether;
+        premiumCapsUsdPriceByQuantity[30] = 9.99 ether;
+        premiumPackUsdPrice = 99.99 ether;
+
+        // Pyth
+        pyth = IPyth(_pyth);
 
         // Set the default royalty to 0
         _setDefaultRoyalty(_feeReceiver, 0);
@@ -252,35 +310,36 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Open a caps that mint 3 new tokens to the message sender using an authorized signature.
+     * @param req The mint request containing the mint information.
      * @param signature The signature that authorizes the mint.
-     * @param message The signed message containing the mint information.
-     *                  - address to: The address to mint the tokens to.
-     *                  - uint256 index: The index of the mint.
-     *                  - bool isPremium: Whether the mint is premium or not.
      */
-    function mint3WithSignature(bytes memory signature, bytes calldata message) external {
-        // Verify the signature
-        bytes32 messageHash = keccak256(message);
-        address recoveredSigner = ECDSA.recover(messageHash, signature);
-        if (recoveredSigner != capsSigner) revert INVALID_SIGNATURE();
+    function mint3WithSignature(MintRequest calldata req, bytes calldata signature) external {
+        // Ensure the sender is the intended recipient.
+        if (req.to != msg.sender) {
+            revert INVALID_SENDER(msg.sender, req.to);
+        }
 
-        // Decode the message
-        (address to, uint256 index, bool isPremium) = abi.decode(message, (address, uint256, bool));
+        // Check if this mint request has already been processed.
+        if (signatureMintsOf[req.to][req.index]) {
+            revert SIGNATURE_REUSED();
+        }
 
-        // Check if the signature has already been used
-        if (signatureMintsOf[to][index]) revert SIGNATURE_REUSED();
+        // Compute the EIP712 digest for the mint request.
+        bytes32 digest = hashMintRequest(req);
 
-        // Check if the sender is the expected one
-        /// @dev Only the "to" address can use the signature
-        if (to != msg.sender) revert INVALID_SENDER(msg.sender, to);
+        // Recover the signer from the digest and signature.
+        address recoveredSigner = ECDSA.recover(digest, signature);
+        if (recoveredSigner != capsSigner) {
+            revert INVALID_SIGNATURE();
+        }
 
-        // Mark the signature as used
-        signatureMintsOf[to][index] = true;
+        // Mark the signature as used.
+        signatureMintsOf[req.to][req.index] = true;
 
-        // Mint the NFTs
-        _open3CapsForSender(isPremium);
+        // Proceed with minting.
+        _open3CapsForSender(req.isPremium);
 
-        emit MintedWithSignature(msg.sender, message, signature);
+        emit MintedWithSignature(msg.sender, req, signature);
     }
 
     /**
@@ -289,13 +348,15 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param quantity The quantity of caps to buy.
      * @dev The quantity must be a multiple of 3 because each mint opens 3 caps.
      */
-    function buyCaps(bool isPremium, uint256 quantity) external payable {
+    function buyCaps(bool isPremium, uint256 quantity, bytes[] calldata priceUpdate) external payable {
         if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
 
-        uint256 price = isPremium ? premiumCapsPriceByQuantity[quantity] : capsPriceByQuantity[quantity];
+        uint256 usdPrice = isPremium ? premiumCapsUsdPriceByQuantity[quantity] : capsUsdPriceByQuantity[quantity];
+        if (usdPrice == 0) revert UNKNOWN_CAPS_PRICE_FOR(quantity, isPremium);
 
-        if (price == 0) revert UNKNOWN_PRICE_FORE(quantity, isPremium);
-        if (msg.value != price) revert WRONG_VALUE();
+        (uint256 ethUsdPrice, uint256 pythFee) = getEthUsdPythPrice(priceUpdate);
+        uint256 ethWeiBuyPrice = usdPrice * 1e18 / ethUsdPrice;
+        if (msg.value < ethWeiBuyPrice + pythFee) revert NOT_ENOUGH_VALUE();
 
         unchecked {
             if (isPremium) {
@@ -307,16 +368,24 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Transfer the caps price to the fee receiver at the end of the function for
         // consistency with the typical CEI pattern.
-        (bool success,) = payable(feeReceiver).call{value: msg.value}("");
-        if (!success) revert FEE_TRANSFER_FAILED();
+        (bool feeTransferSuccess,) = payable(feeReceiver).call{value: ethWeiBuyPrice}("");
+        if (!feeTransferSuccess) revert FEE_TRANSFER_FAILED();
+
+        // Refund the excess value to the msg.sender
+        if (msg.value > ethWeiBuyPrice + pythFee) {
+            (bool refundSuccess,) = payable(msg.sender).call{value: msg.value - ethWeiBuyPrice - pythFee}("");
+            if (!refundSuccess) revert VALUE_REFUND_FAILED();
+        }
     }
 
     /**
      * @notice Buy a premium pack with the price of {premiumPackPrice}.
      * @dev The premium pack contains 1 NFT mint + 12 caps + 3 premium caps.
      */
-    function buyPremiumPack() external payable {
-        if (msg.value != premiumPackPrice) revert WRONG_VALUE();
+    function buyPremiumPack(bytes[] calldata priceUpdate) external payable {
+        (uint256 ethUsdPrice, uint256 pythFee) = getEthUsdPythPrice(priceUpdate);
+        uint256 ethWeiBuyPrice = premiumPackUsdPrice * 1e18 / ethUsdPrice;
+        if (msg.value < ethWeiBuyPrice + pythFee) revert NOT_ENOUGH_VALUE();
 
         // Give the caps to the buyer (12 caps because 12 is a multiple of 3)
         paidCapsBalanceOf[msg.sender] += 12;
@@ -326,7 +395,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         // Mint the NFT in the pack
         /// @dev open a single caps directly because the premium pack contains 1 NFT mint
         uint256 _tokenId = tokenId; // Cache the tokenId in memory
-        _mint(msg.sender, _tokenId);
+        _safeMint(msg.sender, _tokenId);
 
         // tokenId can be safely incremented
         unchecked {
@@ -334,8 +403,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         }
 
         // Transfer the caps price to the fee receiver
-        (bool success,) = payable(feeReceiver).call{value: premiumPackPrice}("");
+        (bool success,) = payable(feeReceiver).call{value: ethWeiBuyPrice}("");
         if (!success) revert FEE_TRANSFER_FAILED();
+
+        // Refund the excess value to the msg.sender
+        if (msg.value > ethWeiBuyPrice + pythFee) {
+            (bool refundSuccess,) = payable(msg.sender).call{value: msg.value - ethWeiBuyPrice - pythFee}("");
+            if (!refundSuccess) revert VALUE_REFUND_FAILED();
+        }
 
         // Emit the CapsOpened event corresponding to the minted token
         emit CapsOpened(msg.sender, _tokenId, false, true);
@@ -412,6 +487,28 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         return super.supportsInterface(interfaceId);
     }
 
+    /**
+     * @dev See {IERC721Metadata-name}.
+     */
+    function name() public pure override returns (string memory) {
+        return _name;
+    }
+
+    /**
+     * @dev See {IERC721Metadata-symbol}.
+     */
+    function symbol() public pure override returns (string memory) {
+        return _symbol;
+    }
+
+    /**
+     * @notice Hash a mint request.
+     * @param req The mint request to hash.
+     */
+    function hashMintRequest(MintRequest calldata req) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(_MINTREQUEST_TYPEHASH, req.to, req.index, req.isPremium)));
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                            Only owner functions                            */
     /* -------------------------------------------------------------------------- */
@@ -429,8 +526,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the caps price.
      * @param price The new caps price.
      */
-    function setCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
-        capsPriceByQuantity[quantity] = price;
+    function setCapsUsdPrice(uint256 quantity, uint256 price) external onlyOwner {
+        if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
+        capsUsdPriceByQuantity[quantity] = price;
         emit CapsPriceChanged(quantity, price);
     }
 
@@ -438,8 +536,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the premium caps price.
      * @param price The new premium caps price.
      */
-    function setPremiumCapsPrice(uint256 quantity, uint256 price) external onlyOwner {
-        premiumCapsPriceByQuantity[quantity] = price;
+    function setPremiumCapsUsdPrice(uint256 quantity, uint256 price) external onlyOwner {
+        if (quantity % 3 != 0) revert WRONG_CAPS_QUANTITY();
+        premiumCapsUsdPriceByQuantity[quantity] = price;
         emit PremiumCapsPriceChanged(quantity, price);
     }
 
@@ -447,8 +546,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice Set the premium pack price.
      * @param price The new premium pack price.
      */
-    function setPremiumPackPrice(uint256 price) external onlyOwner {
-        premiumPackPrice = price;
+    function setPremiumPackUsdPrice(uint256 price) external onlyOwner {
+        premiumPackUsdPrice = price;
         emit PremiumPackPriceChanged(price);
     }
 
@@ -467,6 +566,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param cooldown The new free mint cooldown.
      */
     function setFreeMintCooldown(uint256 cooldown) external onlyOwner {
+        if (cooldown == 0) revert ZERO_COOLDOWN();
         freeMintCooldown = cooldown;
         emit FreeMintCooldownChanged(cooldown);
     }
@@ -476,6 +576,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param receiver The new fee receiver.
      */
     function setFeeReceiver(address receiver) external onlyOwner {
+        if (receiver == address(0)) revert ZERO_ADDRESS();
         feeReceiver = receiver;
         emit FeeReceiverChanged(receiver);
     }
@@ -485,6 +586,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param _capsSigner The new signer.
      */
     function setCapsSigner(address _capsSigner) external onlyOwner {
+        if (_capsSigner == address(0)) revert ZERO_ADDRESS();
         capsSigner = _capsSigner;
         emit CapsSignerChanged(_capsSigner);
     }
@@ -530,9 +632,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         // Cache the tokenId in memory
         uint256 _tokenId = tokenId;
 
-        _mint(msg.sender, _tokenId);
-        _mint(msg.sender, _tokenId + 1);
-        _mint(msg.sender, _tokenId + 2);
+        _safeMint(msg.sender, _tokenId);
+        _safeMint(msg.sender, _tokenId + 1);
+        _safeMint(msg.sender, _tokenId + 2);
         _lockFirstMintToken(_tokenId + 2);
 
         // Increment the tokenId
@@ -559,5 +661,35 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
             emit LockedFirstMintToken(_tokenId);
         }
+    }
+
+    /**
+     * @notice Update Pyth price for price ID and return the price.
+     * @param priceUpdate The encoded data to update the contract with the latest price
+     */
+    function getEthUsdPythPrice(bytes[] calldata priceUpdate) private returns (uint256 _price, uint256 _fee) {
+        // Submit a priceUpdate to the Pyth contract to update the on-chain price.
+        // Updating the price requires paying the fee returned by getUpdateFee.
+        // WARNING: These lines are required to ensure the getPriceNoOlderThan call below succeeds. If you remove them, transactions may fail with "0x19abf40e" error.
+        _fee = pyth.getUpdateFee(priceUpdate);
+        pyth.updatePriceFeeds{value: _fee}(priceUpdate);
+
+        // Read the current price from a price feed if it is less than 60 seconds old.
+        // Each price feed (e.g., ETH/USD) is identified by a price feed ID.
+        // The complete list of feed IDs is available at https://pyth.network/developers/price-feed-ids
+        bytes32 priceFeedId = 0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace; // ETH/USD
+        PythStructs.Price memory price = pyth.getPriceNoOlderThan(priceFeedId, 60);
+
+        // Convert the price to a uint256 with 18 decimals.
+        int256 intPrice;
+        if (price.expo < 0) {
+            // For negative exponent, divide by 10**(-expo)
+            intPrice = int256(price.price) * 1e18 / int256(10 ** uint256(-int256(price.expo)));
+        } else {
+            // For non-negative exponent, multiply by 10**expo
+            intPrice = int256(price.price) * 1e18 * int256(10 ** uint256(int256(price.expo)));
+        }
+
+        _price = uint256(intPrice < 0 ? int256(0) : intPrice);
     }
 }

@@ -34,6 +34,18 @@ jobs:
           forge fmt --check
         id: fmt
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '23'
+
+      - name: Install pnpm
+        run: npm install -g pnpm
+
+      - name: Install dependencies
+        run: |
+          forge install && pnpm install
+
       - name: Run Forge build
         run: |
           forge build --sizes

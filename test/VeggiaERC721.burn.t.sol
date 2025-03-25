@@ -4,18 +4,19 @@ pragma solidity ^0.8.24;
 import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
+import {DeployHelper} from "./utils/DeployHelper.sol";
 import {MintHelper} from "./utils/MintHelper.sol";
 import {IERC721Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
+import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 
-contract VeggiaERC721BurnTest is Test {
+contract VeggiaERC721BurnTest is Test, ERC721Holder {
     using MintHelper for VeggiaERC721;
 
     VeggiaERC721 public veggia;
 
     function setUp() public {
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia.initialize(address(this), address(this), serverSigner, "http://localhost:4000/");
+        veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
     }
 
     function test_burn() public {
