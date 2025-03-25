@@ -682,6 +682,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @dev Override the _approve function to prevent approving locked tokens.
+     * @dev Locking the approval prevent a user to list a NFT on a marketplace while the NFT is locked.
      * @param to The address to approve.
      * @param token The token ID to approve.
      * @param auth The authorizer of the approval.
