@@ -40,6 +40,17 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         bool isPremium;
     }
 
+    /**
+     * @notice A struct that represents a super pass update request.
+     * @dev Used to validate the updateSuperPassWithSignature message.
+     * @param owner The account to update the super pass.
+     * @param unlocked Whether to lock or unlock the super pass.
+     */
+    struct UpdateSuperPassRequest {
+        address owner;
+        bool unlocked;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                                   Storage                                  */
     /* -------------------------------------------------------------------------- */
@@ -130,9 +141,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     string private constant _symbol = "VGIA";
     /**
-     * @notice The EIP712 domain separator.
+     * @dev The EIP712 domain separator.
      */
     bytes32 private constant _MINTREQUEST_TYPEHASH = keccak256("MintRequest(address to,uint256 index,bool isPremium)");
+    /**
+     * @dev The EIP712 domain separator.
+     */
+    bytes32 private constant _UPDATESUPERPASSREQUEST_TYPEHASH =
+        keccak256("UpdateSuperPassRequest(address owner,bool unlocked)");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -426,18 +442,21 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
     /**
      * @notice Lock/unlock the super pass for an account.
-     * @param account The account to unlock the super pass.
-     * @param locked Whether to lock or unlock the super pass.
+     * @param req The super pass update request.
      * @param signature The signature that authorizes the unlock.
      */
-    function updateSuperPassWithSignature(address account, bool locked, bytes calldata signature) external {
+    function updateSuperPassWithSignature(UpdateSuperPassRequest calldata req, bytes calldata signature) external {
+        // Compute the EIP712 digest for the unlock request.
+        bytes32 digest = hashUpdateSuperPassRequest(req);
+
         // Recover the signer from the digest and signature.
-        address recoveredSigner = ECDSA.recover(keccak256(abi.encodePacked(account, locked)), signature);
+        address recoveredSigner = ECDSA.recover(digest, signature);
         if (recoveredSigner != authoritySigner) {
             revert INVALID_SIGNATURE();
         }
 
-        hasSuperPass[account] = locked;
+        // Update the super pass status.
+        hasSuperPass[req.owner] = req.unlocked;
     }
 
     /**
@@ -531,6 +550,14 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function hashMintRequest(MintRequest calldata req) public view returns (bytes32) {
         return _hashTypedDataV4(keccak256(abi.encode(_MINTREQUEST_TYPEHASH, req.to, req.index, req.isPremium)));
+    }
+
+    /**
+     * @notice Hash a mint request.
+     * @param req The mint request to hash.
+     */
+    function hashUpdateSuperPassRequest(UpdateSuperPassRequest calldata req) public view returns (bytes32) {
+        return _hashTypedDataV4(keccak256(abi.encode(_UPDATESUPERPASSREQUEST_TYPEHASH, req.owner, req.unlocked)));
     }
 
     /* -------------------------------------------------------------------------- */
@@ -645,7 +672,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     {
         address from = _ownerOf(token);
 
-        if (!hasSuperPass[from]) {
+        if (from != address(0) && !hasSuperPass[from]) {
             revert CANT_TRANSFER_WITHOUT_SUPER_PASS(from, token);
         }
 
