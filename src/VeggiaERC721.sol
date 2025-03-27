@@ -199,6 +199,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     event CapsOpened(address indexed account, uint256 indexed tokenId, bool premium, bool isPack);
     event MintedWithSignature(address indexed account, MintRequest req, bytes signature);
     event DefaultRoyaltyChanged(address receiver, uint96 feeNumerator);
+    event SuperPassUpdated(address indexed owner, bool indexed unlocked, bytes signature);
 
     /* -------------------------------------------------------------------------- */
     /*                                 Constructor                                */
@@ -457,6 +458,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Update the super pass status.
         hasSuperPass[req.owner] = req.unlocked;
+
+        // Emit the SuperPassUpdated event.
+        emit SuperPassUpdated(req.owner, req.unlocked, signature);
     }
 
     /**
