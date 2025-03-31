@@ -127,6 +127,10 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @notice A mapping of the super pass status of an account.
      */
     mapping(address => bool) public hasSuperPass;
+    /**
+     * @notice A mapping of the super pass signature used.
+     */
+    mapping(bytes32 => bool) public superPassSignatureUsed;
 
     /* -------------------------------- Constants ------------------------------- */
 
@@ -380,7 +384,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         if (usdPrice == 0) revert UNKNOWN_CAPS_PRICE_FOR(quantity, isPremium);
 
         (uint256 ethUsdPrice, uint256 pythFee) = getEthUsdPythPrice(priceUpdate);
-        uint256 ethWeiBuyPrice = usdPrice * 1e18 / ethUsdPrice;
+        uint256 ethWeiBuyPrice = (usdPrice * 1e18) / ethUsdPrice;
         if (msg.value < ethWeiBuyPrice + pythFee) revert NOT_ENOUGH_VALUE();
 
         unchecked {
@@ -409,7 +413,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     function buyPremiumPack(bytes[] calldata priceUpdate) external payable {
         (uint256 ethUsdPrice, uint256 pythFee) = getEthUsdPythPrice(priceUpdate);
-        uint256 ethWeiBuyPrice = premiumPackUsdPrice * 1e18 / ethUsdPrice;
+        uint256 ethWeiBuyPrice = (premiumPackUsdPrice * 1e18) / ethUsdPrice;
         if (msg.value < ethWeiBuyPrice + pythFee) revert NOT_ENOUGH_VALUE();
 
         // Give the caps to the buyer (12 caps because 12 is a multiple of 3)
@@ -456,8 +460,16 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
             revert INVALID_SIGNATURE();
         }
 
+        // Check if the signature has already been used.
+        if (superPassSignatureUsed[digest]) {
+            revert SIGNATURE_REUSED();
+        }
+
         // Update the super pass status.
         hasSuperPass[req.owner] = req.unlocked;
+
+        // Update the super pass signature used.
+        superPassSignatureUsed[digest] = true;
 
         // Emit the SuperPassUpdated event.
         emit SuperPassUpdated(req.owner, req.unlocked, signature);
@@ -781,7 +793,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         int256 intPrice;
         if (price.expo < 0) {
             // For negative exponent, divide by 10**(-expo)
-            intPrice = int256(price.price) * 1e18 / int256(10 ** uint256(-int256(price.expo)));
+            intPrice = (int256(price.price) * 1e18) / int256(10 ** uint256(-int256(price.expo)));
         } else {
             // For non-negative exponent, multiply by 10**expo
             intPrice = int256(price.price) * 1e18 * int256(10 ** uint256(int256(price.expo)));
