@@ -131,9 +131,10 @@ contract VeggiaERC721SuperPassTest is Test, ERC721Holder {
         assertEq(veggia.ownerOf(0), owner);
 
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.CANT_APPROVE_WITHOUT_SUPER_PASS.selector));
-        veggia.approve(owner, 0);
+        veggia.approve(spender, 0);
 
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721.CANT_APPROVE_WITHOUT_SUPER_PASS.selector));
         veggia.setApprovalForAll(spender, true);
+        vm.stopPrank();
     }
 }

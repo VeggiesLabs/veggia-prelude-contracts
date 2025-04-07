@@ -12,7 +12,6 @@ import {ERC721Burnable} from "@openzeppelin/contracts/token/ERC721/extensions/ER
 import {ERC721Royalty} from "@openzeppelin/contracts/token/ERC721/extensions/ERC721Royalty.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712Upgradeable} from "@openzeppelin-upgradable/contracts/utils/cryptography/EIP712Upgradeable.sol";
-import {console2} from "forge-std/console2.sol";
 
 /**
  * @title VeggiaERC721
@@ -707,7 +706,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     function _approve(address to, uint256 token, address auth, bool emitEvent) internal override {
         address from = _ownerOf(token);
 
-        if (!hasSuperPass[from]) {
+        // If The authorizer is not address(0) and the address to approve is not address(0)
+        // and the from address is not the super pass owner, revert
+        if (!hasSuperPass[from] && auth != address(0) && to != address(0)) {
             revert CANT_APPROVE_WITHOUT_SUPER_PASS();
         }
 
