@@ -40,8 +40,9 @@ library DeployHelper {
     }
 
     function updateSuperPassFor(VeggiaERC721 veggia, bytes32 authoritySigner, address owner, bool unlocked) internal {
-        bytes memory signature = SignatureHelper.signUpdateForAs(veggia, authoritySigner, owner, unlocked);
-        VeggiaERC721.UpdateSuperPassRequest memory request = VeggiaERC721.UpdateSuperPassRequest(owner, unlocked);
+        uint256 index = uint256(keccak256(abi.encodePacked(owner, unlocked)));
+        bytes memory signature = SignatureHelper.signUpdateForAs(veggia, authoritySigner, owner, index, unlocked);
+        VeggiaERC721.UpdateSuperPassRequest memory request = VeggiaERC721.UpdateSuperPassRequest(owner, index, unlocked);
         veggia.updateSuperPassWithSignature(request, signature);
     }
 }

@@ -9,7 +9,7 @@ import {console2} from "forge-std/console2.sol";
 library SignatureHelper {
     bytes32 private constant MINTREQUEST_TYPEHASH = keccak256("MintRequest(address to,uint256 index,bool isPremium)");
     bytes32 private constant UPDATESUPERPASSREQUEST_TYPEHASH =
-        keccak256("UpdateSuperPassRequest(address owner,bool unlocked)");
+        keccak256("UpdateSuperPassRequest(address owner,uint256 index,bool unlocked)");
 
     address internal constant VM_ADDRESS = address(uint160(uint256(keccak256("hevm cheat code"))));
     Vm internal constant vm = Vm(VM_ADDRESS);
@@ -48,15 +48,15 @@ library SignatureHelper {
         return signature;
     }
 
-    function signUpdateFor(VeggiaERC721 veggia, address owner, bool unlocked)
+    function signUpdateFor(VeggiaERC721 veggia, address owner, uint256 index, bool unlocked)
         public
         view
         returns (bytes memory signature)
     {
-        return signUpdateForAs(veggia, SERVER_SIGNER, owner, unlocked);
+        return signUpdateForAs(veggia, SERVER_SIGNER, owner, index, unlocked);
     }
 
-    function signUpdateForAs(VeggiaERC721 veggia, bytes32 signer, address owner, bool unlocked)
+    function signUpdateForAs(VeggiaERC721 veggia, bytes32 signer, address owner, uint256 index, bool unlocked)
         public
         view
         returns (bytes memory signature)
@@ -72,7 +72,7 @@ library SignatureHelper {
         );
 
         // Compute the struct hash for UnlockFor
-        bytes32 structHash = keccak256(abi.encode(UPDATESUPERPASSREQUEST_TYPEHASH, owner, unlocked));
+        bytes32 structHash = keccak256(abi.encode(UPDATESUPERPASSREQUEST_TYPEHASH, owner, index, unlocked));
 
         // Compute the EIP712 digest: "\x19\x01" ‖ DOMAIN_SEPARATOR ‖ structHash
         bytes32 digest = keccak256(abi.encodePacked("\x19\x01", DOMAIN_SEPARATOR, structHash));

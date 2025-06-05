@@ -47,6 +47,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      */
     struct UpdateSuperPassRequest {
         address owner;
+        uint256 index;
         bool unlocked;
     }
 
@@ -151,7 +152,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @dev The EIP712 domain separator.
      */
     bytes32 private constant _UPDATESUPERPASSREQUEST_TYPEHASH =
-        keccak256("UpdateSuperPassRequest(address owner,bool unlocked)");
+        keccak256("UpdateSuperPassRequest(address owner,uint256 index,bool unlocked)");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
@@ -572,7 +573,9 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
      * @param req The mint request to hash.
      */
     function hashUpdateSuperPassRequest(UpdateSuperPassRequest calldata req) public view returns (bytes32) {
-        return _hashTypedDataV4(keccak256(abi.encode(_UPDATESUPERPASSREQUEST_TYPEHASH, req.owner, req.unlocked)));
+        return _hashTypedDataV4(
+            keccak256(abi.encode(_UPDATESUPERPASSREQUEST_TYPEHASH, req.owner, req.index, req.unlocked))
+        );
     }
 
     /* -------------------------------------------------------------------------- */

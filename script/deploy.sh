@@ -53,3 +53,5 @@ read -p "Do you want to continue? (y/n) " -n 1 -r
 
 # Deploy contracts
 forge script script/deployAll.s.sol:DeployAll --slow --broadcast --ledger --hd-paths $HD_PATHS --ffi --zksync --rpc-url $RPC_URL --chain $CHAIN_ID --verify --verifier etherscan --verifier-url $VERIFY_URL --etherscan-api-key $API_KEY
+
+bash deployDispenser.sh
