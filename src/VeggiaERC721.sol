@@ -234,7 +234,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         /// @dev Skips owner verification as the proxy is already ownable.
 
         // Init EIP712
-        __EIP712_init("Veggia", "1");
+        __EIP712_init("Veggia", "abstract");
 
         // Transfer the ownership to the owner
         _transferOwnership(_owner);
