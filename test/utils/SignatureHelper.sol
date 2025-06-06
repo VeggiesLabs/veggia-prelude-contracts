@@ -4,7 +4,6 @@ pragma solidity ^0.8.24;
 import {VeggiaERC721} from "../../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "../utils/constants.sol";
 import {Vm} from "forge-std/Vm.sol";
-import {console2} from "forge-std/console2.sol";
 
 library SignatureHelper {
     bytes32 private constant MINTREQUEST_TYPEHASH = keccak256("MintRequest(address to,uint256 index,bool isPremium)");

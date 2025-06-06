@@ -8,8 +8,6 @@ import {SignatureHelper} from "./utils/SignatureHelper.sol";
 import {ERC721Holder} from "@openzeppelin/contracts/token/ERC721/utils/ERC721Holder.sol";
 import {DeployHelper} from "./utils/DeployHelper.sol";
 
-import {console2} from "forge-std/console2.sol";
-
 contract VeggiaERC721MintWithSignatureTest is Test, ERC721Holder {
     VeggiaERC721 public veggia;
 
@@ -17,9 +15,6 @@ contract VeggiaERC721MintWithSignatureTest is Test, ERC721Holder {
         vm.assume(user != address(0));
         vm.assume(user.code.length == 0);
         (address serverSigner, uint256 signer) = makeAddrAndKey(random);
-        console2.log("serverSigner", serverSigner);
-        console2.log("signer", signer);
-
         veggia = new VeggiaERC721();
         veggia = DeployHelper.deployVeggia(address(this), address(this), serverSigner, "http://localhost:4000/");
         assertEq(veggia.authoritySigner(), serverSigner);
