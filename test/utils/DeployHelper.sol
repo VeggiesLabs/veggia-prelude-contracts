@@ -19,7 +19,7 @@ library DeployHelper {
         VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
 
         vm.prank(owner);
-        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(0), baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(0), baseURI, "tests");
 
         return VeggiaERC721(address(veggiaProxy));
     }
@@ -34,7 +34,7 @@ library DeployHelper {
         MockPyth pyth = new MockPyth(60, 1);
 
         vm.prank(owner);
-        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(pyth), baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, address(pyth), baseURI, "tests");
 
         return (VeggiaERC721(address(veggiaProxy)), pyth);
     }

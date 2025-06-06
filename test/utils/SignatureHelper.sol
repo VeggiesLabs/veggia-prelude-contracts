@@ -31,7 +31,7 @@ library SignatureHelper {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Veggia")),
-                keccak256(bytes("1")),
+                keccak256(bytes("tests")),
                 block.chainid,
                 address(veggia)
             )
@@ -65,7 +65,7 @@ library SignatureHelper {
             abi.encode(
                 keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
                 keccak256(bytes("Veggia")),
-                keccak256(bytes("1")),
+                keccak256(bytes("tests")),
                 block.chainid,
                 address(veggia)
             )

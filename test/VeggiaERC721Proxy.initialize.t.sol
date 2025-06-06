@@ -33,14 +33,14 @@ contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
 
         veggia = VeggiaERC721(address(proxy));
         vm.prank(initialOwner);
-        veggia.initialize(owner, feeReceiver, serverSigner, address(123456789), baseUri);
+        veggia.initialize(owner, feeReceiver, serverSigner, address(123456789), baseUri, "tests");
 
         assertEq(veggia.authoritySigner(), serverSigner);
         assertEq(veggia.owner(), owner);
         assertEq(veggia.feeReceiver(), feeReceiver);
 
         assertEq(veggia.freeMintLimit(), 6);
-        assertEq(veggia.freeMintCooldown(), 12 hours);
+        assertEq(veggia.freeMintCooldown(), 24 hours);
         // assertEq(veggia.capsUsdPriceByQuantity(3), 0.0003 ether);
         // assertEq(veggia.capsUsdPriceByQuantity(9), 0.0006 ether);
         // assertEq(veggia.capsUsdPriceByQuantity(30), 0.0018 ether);
@@ -65,14 +65,16 @@ contract VeggiaERC721ProxyInitializeTest is Test, ERC721Holder {
         vm.prank(initialOwner);
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721Proxy.ALREADY_INITIALIZED.selector));
         veggia.initialize(
-            address(0x1234), address(0x5678), address(0x9999), address(0x654654), "http://localhost:4000/"
+            address(0x1234), address(0x5678), address(0x9999), address(0x654654), "http://localhost:4000/", "tests"
         );
     }
 
     function test_proxyCantReceiveEth() public {
         veggia = new VeggiaERC721();
         proxy = new VeggiaERC721Proxy(address(veggia), address(this));
-        proxy.initialize(address(0x1234), address(0x5678), address(0x9999), address(0x654654), "http://localhost:4000/");
+        proxy.initialize(
+            address(0x1234), address(0x5678), address(0x9999), address(0x654654), "http://localhost:4000/", "tests"
+        );
 
         vm.expectRevert(abi.encodeWithSelector(VeggiaERC721Proxy.CAN_NOT_RECEIVE_ETHER.selector));
         payable(address(proxy)).transfer(1 ether);

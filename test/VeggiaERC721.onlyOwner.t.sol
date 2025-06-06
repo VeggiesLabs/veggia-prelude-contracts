@@ -108,7 +108,7 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
     }
 
     function test_setFreeMintCooldown() public {
-        assertEq(veggia.freeMintCooldown(), 12 hours);
+        assertEq(veggia.freeMintCooldown(), 24 hours);
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.FreeMintCooldownChanged(3 hours);
@@ -145,7 +145,7 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         (address receiver, uint256 amount) = veggia.royaltyInfo(0, 1 ether);
 
         assertEq(receiver, address(0x1234));
-        assertEq(amount, 0);
+        assertEq(amount, 300 * 1 ether / 10000); // 3% royalty
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.DefaultRoyaltyChanged(address(0x9999), 1000);

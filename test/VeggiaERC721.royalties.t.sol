@@ -21,7 +21,7 @@ contract VeggiaERC721ERC2981Test is Test {
         (address receiver, uint256 amount) = veggia.royaltyInfo(0, 1 ether);
 
         assertEq(receiver, address(0x1234));
-        assertEq(amount, 0);
+        assertEq(amount, 300 * 1 ether / 10000); // 3% royalty
     }
 
     function test_supportsInterface() public view {
