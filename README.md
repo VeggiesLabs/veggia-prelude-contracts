@@ -110,7 +110,7 @@ Below are the main features you can leverage in VeggiaERC721.
 ### Signature-based Minting (`mint3WithSignature`)
 
 - **Signature-based mints** are performed using `mint3WithSignature(bytes memory signature, bytes calldata message)`.
-- **Caps Signer** (`capsSigner`) authorizes specific wallets to mint via an ECDSA signature.
+- **Caps Signer** (`authoritySigner`) authorizes specific wallets to mint via an ECDSA signature.
 - The `message` includes who is allowed to mint, an index used for uniqueness, and whether it’s for premium or regular caps.
 - Prevents replay via `signatureMintsOf[to][index]`.
 
@@ -171,7 +171,7 @@ To clarify how users typically interact with the VeggiaERC721 protocol:
    VeggiaERC721Proxy.initialize(
        owner,          // Address that will own the contract
        feeReceiver,    // Destination for fees (caps purchase, etc.)
-       capsSigner,     // The authorized signer for signature-based mints
+       authoritySigner,     // The authorized signer for signature-based mints
        baseUri         // The base URI for token metadata
    );
    ```
@@ -203,7 +203,7 @@ The **owner** of the VeggiaERC721 contract (not necessarily the ProxyAdmin) can 
 - **`setFeeReceiver(address receiver)`**  
   Changes the recipient for all Ether fees.
 
-- **`setCapsSigner(address _capsSigner)`**  
+- **`setAuthoritySigner(address _authoritySigner)`**  
   Changes the authorized ECDSA signer for signature-based mints.
 
 ---
@@ -214,7 +214,7 @@ The **owner** of the VeggiaERC721 contract (not necessarily the ProxyAdmin) can 
    - If a token is locked, it is permanently non-transferable, though it can be burned. 
 
 2. **Signature-based Mints**:
-   - Validate that the `capsSigner` is secured properly. 
+   - Validate that the `authoritySigner` is secured properly. 
    - The contract checks `signatureMintsOf[to][index]` to prevent replay attacks.
 
 3. **TransparentUpgradeableProxy**:

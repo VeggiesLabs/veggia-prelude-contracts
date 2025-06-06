@@ -167,8 +167,8 @@ FN:478,VeggiaERC721.setFeeReceiver
 FNDA:1,VeggiaERC721.setFeeReceiver
 DA:479,1
 DA:480,1
-FN:487,VeggiaERC721.setCapsSigner
-FNDA:1,VeggiaERC721.setCapsSigner
+FN:487,VeggiaERC721.setAuthoritySigner
+FNDA:1,VeggiaERC721.setAuthoritySigner
 DA:488,1
 DA:489,1
 FN:497,VeggiaERC721.setDefaultRoyalty

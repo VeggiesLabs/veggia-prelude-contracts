@@ -5,6 +5,7 @@ import {Test, console} from "forge-std/Test.sol";
 import {VeggiaERC721} from "../src/VeggiaERC721.sol";
 import {SERVER_SIGNER} from "./utils/constants.sol";
 import {MintHelper} from "./utils/MintHelper.sol";
+import {DeployHelper} from "./utils/DeployHelper.sol";
 
 contract VeggiaERC721OnlyOwnerFctTest is Test {
     using MintHelper for VeggiaERC721;
@@ -13,9 +14,9 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
     address owner = address(0x1234123412341234123412341234123412341234);
 
     function setUp() public {
-        veggia = new VeggiaERC721(address(msg.sender), "http://localhost:4000/");
+        veggia = new VeggiaERC721();
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        veggia.initialize(owner, address(0x1234), serverSigner, "http://localhost:4000/");
+        veggia = DeployHelper.deployVeggia(owner, address(0x1234), serverSigner, "http://localhost:4000/");
 
         assertEq(veggia.owner(), owner);
 
@@ -34,37 +35,51 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         assertEq(veggia.tokenURI(0), "http://new-url.io/0");
     }
 
-    function test_setCapsPrice() public {
-        assertEq(veggia.capsPriceByQuantity(1000), 0);
+    function test_setCapsPrice(uint256 amount) public {
+        amount = bound(amount, 0, type(uint256).max / 3 - 1);
+        amount = amount * 3;
+
+        vm.assume(amount != 3);
+        vm.assume(amount != 9);
+        vm.assume(amount != 30);
+
+        assertEq(veggia.capsUsdPriceByQuantity(amount), 0);
 
         vm.expectEmit(true, false, false, true);
-        emit VeggiaERC721.CapsPriceChanged(1000, 1 ether);
+        emit VeggiaERC721.CapsPriceChanged(amount, 1 ether);
         vm.prank(owner);
-        veggia.setCapsPrice(1000, 1 ether);
+        veggia.setCapsUsdPrice(amount, 1 ether);
 
-        assertEq(veggia.capsPriceByQuantity(1000), 1 ether);
+        assertEq(veggia.capsUsdPriceByQuantity(amount), 1 ether);
     }
 
-    function test_setPremiumCapsPrice() public {
-        assertEq(veggia.premiumCapsPriceByQuantity(1000), 0);
+    function test_setPremiumCapsPrice(uint256 amount) public {
+        amount = bound(amount, 0, type(uint256).max / 3 - 1);
+        amount = amount * 3;
+
+        vm.assume(amount != 3);
+        vm.assume(amount != 9);
+        vm.assume(amount != 30);
+
+        assertEq(veggia.premiumCapsUsdPriceByQuantity(amount), 0);
 
         vm.expectEmit(true, false, false, true);
-        emit VeggiaERC721.PremiumCapsPriceChanged(1000, 1 ether);
+        emit VeggiaERC721.PremiumCapsPriceChanged(amount, 1 ether);
         vm.prank(owner);
-        veggia.setPremiumCapsPrice(1000, 1 ether);
+        veggia.setPremiumCapsUsdPrice(amount, 1 ether);
 
-        assertEq(veggia.premiumCapsPriceByQuantity(1000), 1 ether);
+        assertEq(veggia.premiumCapsUsdPriceByQuantity(amount), 1 ether);
     }
 
-    function test_setPremiumPackPrice() public {
-        assertEq(veggia.premiumPackPrice(), 0.0036 ether);
+    function test_setPremiumPackUsdPrice() public {
+        assertEq(veggia.premiumPackUsdPrice(), 99.99 ether);
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.PremiumPackPriceChanged(1 ether);
         vm.prank(owner);
-        veggia.setPremiumPackPrice(1 ether);
+        veggia.setPremiumPackUsdPrice(1 ether);
 
-        assertEq(veggia.premiumPackPrice(), 1 ether);
+        assertEq(veggia.premiumPackUsdPrice(), 1 ether);
     }
 
     function test_setFreeMintLimit(uint256 amount) public {
@@ -93,7 +108,7 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
     }
 
     function test_setFreeMintCooldown() public {
-        assertEq(veggia.freeMintCooldown(), 12 hours);
+        assertEq(veggia.freeMintCooldown(), 24 hours);
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.FreeMintCooldownChanged(3 hours);
@@ -114,23 +129,23 @@ contract VeggiaERC721OnlyOwnerFctTest is Test {
         assertEq(veggia.feeReceiver(), address(0x5678));
     }
 
-    function test_setCapsSigner() public {
+    function test_setAuthoritySigner() public {
         address serverSigner = vm.addr(uint256(SERVER_SIGNER));
-        assertEq(veggia.capsSigner(), serverSigner);
+        assertEq(veggia.authoritySigner(), serverSigner);
 
         vm.expectEmit(false, false, false, true);
-        emit VeggiaERC721.CapsSignerChanged(address(0x77778888));
+        emit VeggiaERC721.AuthoritySignerChanged(address(0x77778888));
         vm.prank(owner);
-        veggia.setCapsSigner(address(0x77778888));
+        veggia.setAuthoritySigner(address(0x77778888));
 
-        assertEq(veggia.capsSigner(), address(0x77778888));
+        assertEq(veggia.authoritySigner(), address(0x77778888));
     }
 
     function test_setDefaultRoyalty() public {
         (address receiver, uint256 amount) = veggia.royaltyInfo(0, 1 ether);
 
         assertEq(receiver, address(0x1234));
-        assertEq(amount, 0);
+        assertEq(amount, 300 * 1 ether / 10000); // 3% royalty
 
         vm.expectEmit(false, false, false, true);
         emit VeggiaERC721.DefaultRoyaltyChanged(address(0x9999), 1000);
