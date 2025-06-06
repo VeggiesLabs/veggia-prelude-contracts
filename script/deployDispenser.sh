@@ -4,13 +4,25 @@
 source .env
 
 export HD_PATHS="m/44'/60'/${LEDGER_ACCOUNT_INDEX}'/0/0"
-export RPC_URL=$TESTNET_RPC_URL
-export VERIFY_URL=$TESTNET_VERIFY_URL
-export CHAIN_ID=$TESTNET_CHAIN_ID
-export OWNER=$TESTNET_OWNER
-export API_KEY=$TESTNET_API_KEY
-IS_MAINNET=false
-COLOR="\x1b[31m"
+
+# Define environment variables
+if [ "$TESTNET" = "true" ]; then
+    export RPC_URL=$TESTNET_RPC_URL
+    export VERIFY_URL=$TESTNET_VERIFY_URL
+    export CHAIN_ID=$TESTNET_CHAIN_ID
+    export OWNER=$TESTNET_OWNER
+    export API_KEY=$TESTNET_API_KEY
+    IS_MAINNET=false
+    COLOR="\x1b[31m"
+else
+    export RPC_URL=$MAINNET_RPC_URL
+    export VERIFY_URL=$MAINNET_VERIFY_URL
+    export CHAIN_ID=$MAINNET_CHAIN_ID
+    export OWNER=$MAINNET_OWNER
+    export API_KEY=$MAINNET_API_KEY
+    IS_MAINNET=true
+    COLOR="\x1b[31m"
+fi
 
 printf "\x1b[34m======================================================\n"
 printf "==            Mainnet deployment: ${COLOR}${IS_MAINNET}\x1b[34m            ===\n"
