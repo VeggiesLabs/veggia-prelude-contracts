@@ -62,7 +62,6 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
     uint256 public freeMintLimit;
     /**
      * @notice The cooldown time to unlock a new freeMint3.
-     * @dev Default is 12 hours.
      */
     uint256 public freeMintCooldown;
     /**
@@ -229,12 +228,13 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         address _feeReceiver,
         address _authoritySigner,
         address _pyth,
-        string memory _baseUri
+        string memory _baseUri,
+        string memory eip712Version
     ) external initializer {
         /// @dev Skips owner verification as the proxy is already ownable.
 
         // Init EIP712
-        __EIP712_init("Veggia", "abstract");
+        __EIP712_init("Veggia", eip712Version);
 
         // Transfer the ownership to the owner
         _transferOwnership(_owner);
@@ -245,7 +245,7 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
 
         // Must be a multiple of 3
         freeMintLimit = 6;
-        freeMintCooldown = 12 hours;
+        freeMintCooldown = 24 hours;
 
         // Prices in USD with 18 decimals
         premiumCapsUsdPriceByQuantity[3] = 1.99 ether;
@@ -256,8 +256,8 @@ contract VeggiaERC721 is ERC721, ERC721Burnable, ERC721TransferLock, ERC721Royal
         // Pyth
         pyth = IPyth(_pyth);
 
-        // Set the default royalty to 0
-        _setDefaultRoyalty(_feeReceiver, 0);
+        // Set the default royalty to 3% in bas
+        _setDefaultRoyalty(_feeReceiver, 300);
     }
 
     /* -------------------------------------------------------------------------- */

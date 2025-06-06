@@ -37,7 +37,8 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
         address _feeReceiver,
         address _authoritySigner,
         address _pyth,
-        string memory _baseUri
+        string memory _baseUri,
+        string memory eip712Version
     ) external {
         if (msg.sender != ProxyAdmin(_proxyAdmin()).owner()) {
             revert UNAUTHORIZED();
@@ -46,7 +47,7 @@ contract VeggiaERC721Proxy is TransparentUpgradeableProxy {
 
         (bool success,) = _implementation().delegatecall(
             abi.encodeWithSelector(
-                VeggiaERC721.initialize.selector, owner, _feeReceiver, _authoritySigner, _pyth, _baseUri
+                VeggiaERC721.initialize.selector, owner, _feeReceiver, _authoritySigner, _pyth, _baseUri, eip712Version
             )
         );
 

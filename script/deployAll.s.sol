@@ -12,6 +12,7 @@ contract DeployAll is Script {
     address authoritySigner;
     address pyth;
     string baseURI;
+    string env;
 
     function run() external {
         loadEnvVars();
@@ -20,7 +21,7 @@ contract DeployAll is Script {
         VeggiaERC721 veggiaImplementation = new VeggiaERC721();
         VeggiaERC721Proxy veggiaProxy = new VeggiaERC721Proxy(address(veggiaImplementation), owner);
 
-        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, pyth, baseURI);
+        veggiaProxy.initialize(owner, feeReceiver, authoritySigner, pyth, baseURI, env);
 
         vm.stopBroadcast();
     }
@@ -31,5 +32,6 @@ contract DeployAll is Script {
         authoritySigner = vm.envAddress("SERVER_SIGNER");
         pyth = vm.envAddress("PYTH_CONTRACT");
         baseURI = vm.envString("VEGGIA_BASE_URI");
+        env = vm.envString("ENV");
     }
 }
